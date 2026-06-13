@@ -1,0 +1,28 @@
+# [DEPLOY-REMARK] นี่คือ compose ของ "edge" (reverse proxy ตัวหน้าสุด)
+# ก่อน start บน server ต้องสร้าง network กลางก่อน (ทำครั้งเดียว):
+#   docker network create dormi_network
+# network นี้ต้องเป็นชื่อเดียวกับฝั่ง backend (dormi-admin) เพื่อให้คุยกันได้
+services:
+  edge:
+    image: nginx:1.28-alpine
+    container_name: dormi-edge
+    restart: unless-stopped
+    ports:
+      # [DEPLOY-REMARK] server ต้องเปิด firewall/cloud security group ให้ port 80 และ 443
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/projects:/etc/nginx/projects:ro
+      # [DEPLOY-REMARK] production (HTTPS): เปิดบรรทัดนี้เพื่อ mount ใบรับรอง TLS
+      # path บน server (ฝั่งซ้าย) ปรับให้ตรงที่เก็บใบรับรองจริง เช่น Let's Encrypt:
+      #   /etc/letsencrypt/live/<domain>:/etc/nginx/ssl:ro
+      # - ./nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - dormi_network
+
+networks:
+  dormi_network:
+    # [DEPLOY-REMARK] external: true = ต้องสร้าง network นี้เองก่อน (ดูคำสั่งด้านบน)
+    external: true

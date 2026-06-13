@@ -1,0 +1,1 @@
+2026/06/01 09:46:33 [error] 20#20: *3 no live upstreams while connecting to upstream, client: 172.18.0.1, server: api.dormi.local, request: "GET /api/docs HTTP/1.1", upstream: "http://dormi_backend/api/docs", host: "api.dormi.local"
