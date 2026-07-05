@@ -1,0 +1,50 @@
+# ============================================================
+# Dormi Admin — edge = LB ในตัว
+# scale: docker compose up -d --scale dormi-admin=N (ไม่ต้องแก้ไฟล์นี้)
+# [DEPLOY-REMARK] ปรับ server_name + ชื่อ service ให้ตรงจริง
+# เปิดใช้: คัดลอกเป็น 20-dormi-admin.conf เมื่อมี service dormi-admin บน dormi_network
+# ============================================================
+
+upstream dormi_admin_pool {
+    zone dormi_admin_pool 64k;
+    least_conn;
+    server dormi-admin:3000 resolve;   # [DEPLOY-REMARK] service:port ภายในของ admin backend
+    keepalive 32;
+}
+
+# ── :80 — ACME + redirect ──
+server {
+
+    listen 80;
+    server_name admin.dormi-linkandrent.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+
+}
+
+# ── :443 — Admin ──
+server {
+
+    listen 443 ssl;
+    http2 on;
+    server_name admin.dormi-linkandrent.com;
+
+    ssl_certificate     /etc/letsencrypt/live/edge-dormi/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/edge-dormi/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    location /whoami { return 200 "dormi-admin\n"; }
+
+    location / {
+        include /etc/nginx/snippets/proxy_common.conf;
+        proxy_pass http://dormi_admin_pool;
+    }
+
+}

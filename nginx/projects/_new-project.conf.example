@@ -1,0 +1,48 @@
+# ============================================================
+# TEMPLATE เพิ่ม project ใหม่ (LB + TLS ในไฟล์เดียว)
+# ------------------------------------------------------------
+# วิธีใช้:
+#   1) copy ไฟล์นี้ → NN-<project>.conf   (NN = เลขลำดับ เช่น 30, 40)
+#   2) แก้ 3 จุด: <project> (ชื่อ pool), <domain> (server_name), <service>:<port> (upstream)
+#   3) รัน scripts/issue-cert.sh  (จะรวมโดเมนใหม่เข้า cert edge-dormi อัตโนมัติ)
+#   4) docker exec dormi-edge nginx -s reload
+# ไฟล์ .example จะ "ไม่" ถูกโหลด (nginx include เฉพาะ *.conf)
+# ============================================================
+
+upstream <project>_pool {
+    zone <project>_pool 64k;
+    least_conn;
+    server <service>:<port> resolve;   # docker service name → รองรับ --scale อัตโนมัติ
+    keepalive 32;
+}
+
+server {
+    listen 80;
+    server_name <domain>;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name <domain>;
+
+    ssl_certificate     /etc/letsencrypt/live/edge-dormi/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/edge-dormi/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    location /whoami { return 200 "<project>\n"; }
+
+    location / {
+        include /etc/nginx/snippets/proxy_common.conf;
+        proxy_pass http://<project>_pool;
+    }
+}

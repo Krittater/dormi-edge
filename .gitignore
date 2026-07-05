@@ -1,1 +1,12 @@
 .env
+
+# ── TLS material — ห้าม commit เด็ดขาด ──
+# (บทเรียนจาก nst-nginx-front ที่ private key จริงหลุดเข้า git)
+data/
+nginx/ssl/
+*.pem
+*.key
+*.crt
+
+# ── logs ──
+nginx/logs/*.log

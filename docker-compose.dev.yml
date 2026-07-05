@@ -1,10 +1,16 @@
+# ── Dev override ──
+# บน localhost ไม่มี ACME จริง → ใช้ dummy self-signed cert ที่ 10-init-dummy-cert.sh สร้างให้
+# (เข้าเว็บด้วย https + -k / ยอมรับ cert ไม่น่าเชื่อถือในเบราว์เซอร์)
+#
+# รัน dev (ไม่รัน certbot):
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 services:
   edge:
-    ports:
-      - "80:80"
-      - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./nginx/sites/dormi.dev.conf:/etc/nginx/sites/dormi-server.conf:ro
+      # เก็บ log ลงเครื่องเพื่อ debug ตอน dev
       - ./nginx/logs:/var/log/nginx
+
+  certbot:
+    # dev: ไม่ต้องรัน certbot (ใส่ profile ที่ไม่ active ตอน dev)
+    profiles:
+      - prod-only
