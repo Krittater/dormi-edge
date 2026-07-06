@@ -32,6 +32,15 @@ echo "ออก SAN cert '${CERT_NAME}' สำหรับโดเมน:"
 echo "${DOMAINS}" | sed 's/^/  - /'
 echo ""
 
+# ลบ dummy cert ที่ 10-init-dummy-cert.sh สร้างตอน boot ก่อน
+# (certbot ปฏิเสธถ้าเจอ live dir ที่ไม่มี renewal config = ไม่ใช่ของมันเอง)
+# เงื่อนไข: ลบเฉพาะเมื่อยังไม่มี renewal conf จริง → ไม่แตะ cert จริงที่ certbot ออกแล้ว
+CONF_DIR="data/certbot/conf"
+if [ ! -f "${CONF_DIR}/renewal/${CERT_NAME}.conf" ] && [ -d "${CONF_DIR}/live/${CERT_NAME}" ]; then
+  echo "พบ dummy cert เดิม — ลบก่อนออก cert จริง"
+  rm -rf "${CONF_DIR}/live/${CERT_NAME}" "${CONF_DIR}/archive/${CERT_NAME}"
+fi
+
 # หมายเหตุ: โดเมนต้องชี้ DNS มาที่ IP ของ edge + port 80 เข้าถึงได้ (ACME http-01)
 # --entrypoint certbot: จำเป็น! เพราะ certbot service ตั้ง entrypoint เป็น renew loop
 #   ถ้าไม่ override คำสั่ง certonly จะโดน loop กลืน → ค้าง ไม่ออก cert
