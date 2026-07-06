@@ -33,12 +33,15 @@ echo "${DOMAINS}" | sed 's/^/  - /'
 echo ""
 
 # ลบ dummy cert ที่ 10-init-dummy-cert.sh สร้างตอน boot ก่อน
-# (certbot ปฏิเสธถ้าเจอ live dir ที่ไม่มี renewal config = ไม่ใช่ของมันเอง)
-# เงื่อนไข: ลบเฉพาะเมื่อยังไม่มี renewal conf จริง → ไม่แตะ cert จริงที่ certbot ออกแล้ว
+# (certbot ปฏิเสธถ้าเจอ live dir ที่ไม่มี renewal config = ไม่ใช่ของมันเอง
+#  แล้วจะเลี่ยงไปสร้างชื่อ <name>-0001 ทำให้ path ไม่ตรง nginx)
+# ใช้ -s (ไฟล์ไม่ว่าง) → renewal conf เปล่าจากรอบ fail ไม่นับว่าเป็น cert จริง
 CONF_DIR="data/certbot/conf"
-if [ ! -f "${CONF_DIR}/renewal/${CERT_NAME}.conf" ] && [ -d "${CONF_DIR}/live/${CERT_NAME}" ]; then
-  echo "พบ dummy cert เดิม — ลบก่อนออก cert จริง"
-  rm -rf "${CONF_DIR}/live/${CERT_NAME}" "${CONF_DIR}/archive/${CERT_NAME}"
+if [ ! -s "${CONF_DIR}/renewal/${CERT_NAME}.conf" ] && [ -d "${CONF_DIR}/live/${CERT_NAME}" ]; then
+  echo "พบ dummy/junk cert เดิม — ลบก่อนออก cert จริง"
+  rm -rf "${CONF_DIR}/live/${CERT_NAME}" \
+         "${CONF_DIR}/archive/${CERT_NAME}" \
+         "${CONF_DIR}/renewal/${CERT_NAME}.conf"
 fi
 
 # หมายเหตุ: โดเมนต้องชี้ DNS มาที่ IP ของ edge + port 80 เข้าถึงได้ (ACME http-01)
