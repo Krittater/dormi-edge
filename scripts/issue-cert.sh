@@ -33,7 +33,9 @@ echo "${DOMAINS}" | sed 's/^/  - /'
 echo ""
 
 # หมายเหตุ: โดเมนต้องชี้ DNS มาที่ IP ของ edge + port 80 เข้าถึงได้ (ACME http-01)
-docker compose run --rm certbot certbot certonly \
+# --entrypoint certbot: จำเป็น! เพราะ certbot service ตั้ง entrypoint เป็น renew loop
+#   ถ้าไม่ override คำสั่ง certonly จะโดน loop กลืน → ค้าง ไม่ออก cert
+docker compose run --rm --entrypoint certbot certbot certonly \
   --webroot -w /var/www/certbot \
   --cert-name "${CERT_NAME}" \
   ${ARGS} \
