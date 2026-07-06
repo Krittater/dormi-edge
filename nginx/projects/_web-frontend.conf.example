@@ -1,0 +1,45 @@
+# ============================================================
+# (PARKED) Web frontend — เผื่ออนาคตเสิร์ฟ frontend ผ่าน edge ด้วย
+# ------------------------------------------------------------
+# ตอนนี้ปิดอยู่ (นามสกุล .example → nginx ไม่โหลด)
+# ถ้าจะใช้: rename เป็น 30-web.conf, แก้ server_name + service:port ให้ตรง
+#   แล้วรัน scripts/issue-cert.sh ใหม่ (cert จะรวมโดเมนนี้ให้อัตโนมัติ)
+# ============================================================
+
+upstream dormi_web_pool {
+    zone dormi_web_pool 64k;
+    least_conn;
+    server dormi-web:3000 resolve;     # [DEPLOY-REMARK] service:port ของ frontend
+    keepalive 32;
+}
+
+server {
+    listen 80;
+    server_name dormi-linkandrent.com www.dormi-linkandrent.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name dormi-linkandrent.com www.dormi-linkandrent.com;
+
+    ssl_certificate     /etc/letsencrypt/live/edge-dormi/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/edge-dormi/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    location /whoami { return 200 "dormi-web\n"; }
+
+    location / {
+        include /etc/nginx/snippets/proxy_common.conf;
+        proxy_pass http://dormi_web_pool;
+    }
+}
