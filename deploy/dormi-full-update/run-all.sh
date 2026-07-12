@@ -14,9 +14,11 @@
 #   4. backend          พัง → revert BE + DB
 #   5. frontend         พัง → revert FE + BE + DB
 #
-# รันบน server:  bash run-all.sh
+# รันบน server:  bash run-all.sh [X.Y.Z]
+#   ใส่ X.Y.Z = override release version ; เว้นว่าง = auto +0.0.1
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
+VERSION_OVERRIDE="${1:-}"      # ส่งต่อให้ step4 (ว่าง = auto)
 R0="$HERE/03-revert/revert0-restore-db.sh"
 R1="$HERE/03-revert/revert1-deploy-backend-old-version.sh"
 R2="$HERE/03-revert/revert2-deploy-frontend-old-version.sh"
@@ -56,8 +58,16 @@ run_step "3. Migration (diff → backup → run)"    "02-deploy/step1-migration-
 run_step "4. Deploy backend"                     "02-deploy/step2-backend-deploy.sh"   revert_backend
 run_step "5. Deploy frontend"                    "02-deploy/step3-frontend-deploy.sh"  revert_frontend
 
+# 6. บันทึก release version — deploy สำเร็จแล้ว งานบันทึกอย่างเดียว
+#    ★ ไม่ผ่าน run_step (ไม่ revert) — push log พังก็ไม่ถอย deploy ที่สำเร็จ
+echo
+echo "########################################"
+echo "# ▶ 6. Record release version"
+echo "########################################"
+bash "$HERE/02-deploy/step4-version-manager.sh" "$VERSION_OVERRIDE" \
+  || echo "⚠️ version manager มีปัญหา (deploy สำเร็จแล้ว — ไม่กระทบ)"
+
 echo
 echo "════════════════════════════════════════"
 echo " ✅ FULL-UPDATE สำเร็จทั้งหมด"
-echo "    (release — ยังไม่ทำ ปล่อยว่างไว้)"
 echo "════════════════════════════════════════"

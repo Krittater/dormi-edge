@@ -17,6 +17,11 @@ name: Full Update (manual)
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'ระบุ release version (X.Y.Z) — เว้นว่าง = auto +0.0.1 (patch)'
+        required: false
+        default: ''
 
 concurrency:
   group: full-update
@@ -100,6 +105,25 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script_stop: true
           script: cd /root/dormi-edge/deploy/dormi-full-update && bash 02-deploy/step3-frontend-deploy.sh
+
+  # บันทึก release version — รันเฉพาะเมื่อ deploy สำเร็จครบ (needs: frontend, ไม่มี if = ต้อง success)
+  # ★ ไม่ revert: งานบันทึกอย่างเดียว, push log พังก็ไม่กระทบ deploy
+  version:
+    name: "6 · record release version"
+    needs: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+        with:
+          host: ${{ secrets.PROD_SERVER }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: VERSION_INPUT
+          script_stop: true
+          # VERSION_INPUT ว่าง = auto +0.0.1 ; มีค่า = override
+          script: cd /root/dormi-edge/deploy/dormi-full-update && bash 02-deploy/step4-version-manager.sh "$VERSION_INPUT"
 
   # ═══════ REVERT (รันเฉพาะเมื่อพัง / skip เมื่อผ่าน — เรียงลำดับ FE→BE→DB) ═══════
   revert-frontend:
