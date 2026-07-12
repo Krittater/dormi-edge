@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deploy.sh Migration Guard — วิเคราะห์ + รีวิว</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1a1d21; --muted:#5b6470;
+    --line:#e3e7ec; --accent:#2f6fed; --accent-soft:#eaf1ff;
+    --ok:#1a8f5b; --ok-soft:#e5f6ee; --warn:#b26a00; --warn-soft:#fbf0dd;
+    --bad:#c0392b; --bad-soft:#fbe9e7; --code-bg:#0f1620; --code-ink:#e6edf3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --card:#171b21; --ink:#e6edf3; --muted:#9aa4b2;
+      --line:#262d36; --accent:#5b8cff; --accent-soft:#16233f;
+      --ok:#4ecb8b; --ok-soft:#123123; --warn:#e0a34a; --warn-soft:#33270f;
+      --bad:#f0776a; --bad-soft:#3a1c19; --code-bg:#0a0e13; --code-ink:#e6edf3;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --card:#171b21; --ink:#e6edf3; --muted:#9aa4b2;
+    --line:#262d36; --accent:#5b8cff; --accent-soft:#16233f;
+    --ok:#4ecb8b; --ok-soft:#123123; --warn:#e0a34a; --warn-soft:#33270f;
+    --bad:#f0776a; --bad-soft:#3a1c19; --code-bg:#0a0e13; --code-ink:#e6edf3;
+  }
+  :root[data-theme="light"]{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1a1d21; --muted:#5b6470;
+    --line:#e3e7ec; --accent:#2f6fed; --accent-soft:#eaf1ff;
+    --ok:#1a8f5b; --ok-soft:#e5f6ee; --warn:#b26a00; --warn-soft:#fbf0dd;
+    --bad:#c0392b; --bad-soft:#fbe9e7; --code-bg:#0f1620; --code-ink:#e6edf3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI",system-ui,-apple-system,"Noto Sans Thai",sans-serif;
+    line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 20px 80px}
+  header.top{margin-bottom:28px}
+  .kicker{color:var(--accent);font-weight:700;font-size:.82rem;letter-spacing:.08em;text-transform:uppercase}
+  h1{font-size:1.9rem;margin:.2em 0 .1em;line-height:1.2}
+  .sub{color:var(--muted);font-size:1rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:22px 24px;margin:18px 0;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  h2{font-size:1.28rem;margin:.1em 0 .6em;display:flex;align-items:center;gap:.5em}
+  h3{font-size:1.02rem;margin:1.1em 0 .4em}
+  p{margin:.5em 0}
+  .verdict{display:flex;gap:14px;align-items:flex-start;background:var(--ok-soft);
+    border:1px solid var(--ok);border-radius:12px;padding:16px 18px}
+  .verdict .big{font-size:1.7rem;line-height:1}
+  .badge{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 9px;
+    border-radius:999px;letter-spacing:.03em;vertical-align:middle}
+  .b-ok{background:var(--ok-soft);color:var(--ok);border:1px solid var(--ok)}
+  .b-warn{background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn)}
+  .b-bad{background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad)}
+  .b-fix{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent)}
+  table{width:100%;border-collapse:collapse;margin:.6em 0;font-size:.93rem}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.03em}
+  td code,p code,li code{background:var(--accent-soft);color:var(--accent);
+    padding:1px 6px;border-radius:6px;font-size:.86em;font-family:"Cascadia Code",Consolas,monospace}
+  .tablewrap{overflow-x:auto}
+  pre{background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:.84rem;font-family:"Cascadia Code",Consolas,monospace;line-height:1.55}
+  pre .c{color:#7d8aa0}
+  pre .g{color:#4ecb8b}
+  pre .y{color:#e0a34a}
+  pre .r{color:#f0776a}
+  pre .b{color:#5b8cff}
+  ul{margin:.4em 0;padding-left:1.3em}
+  li{margin:.28em 0}
+  .flow{display:flex;flex-direction:column;gap:0;margin:.4em 0}
+  .step{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--line)}
+  .step:last-child{border-bottom:none}
+  .step .n{flex:0 0 30px;height:30px;border-radius:8px;background:var(--accent-soft);
+    color:var(--accent);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.9rem}
+  .step .n.ok{background:var(--ok-soft);color:var(--ok)}
+  .step .n.bad{background:var(--bad-soft);color:var(--bad)}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:640px){.split{grid-template-columns:1fr}}
+  .mini{border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .mini h4{margin:0 0 .3em;font-size:.95rem}
+  .finding{border-left:3px solid var(--line);padding:2px 0 2px 14px;margin:14px 0}
+  .finding.fixed{border-left-color:var(--accent)}
+  .finding.note{border-left-color:var(--warn)}
+  .finding.good{border-left-color:var(--ok)}
+  .finding h4{margin:.1em 0 .2em;font-size:1rem;display:flex;gap:.5em;align-items:center;flex-wrap:wrap}
+  .muted{color:var(--muted)}
+  .foot{color:var(--muted);font-size:.85rem;text-align:center;margin-top:34px}
+  .pill-row{display:flex;flex-wrap:wrap;gap:8px;margin:.5em 0}
+  .kv{font-family:"Cascadia Code",Consolas,monospace;font-size:.85rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="kicker">Dormi · Backend Deploy</div>
+    <h1>วิเคราะห์ + รีวิว <code>deploy.sh</code> (Migration Guard)</h1>
+    <div class="sub">เพิ่มระบบ <b>backup อัตโนมัติ + รัน migration แบบมีตัวกันพัง</b> ตอน deploy backend<br>
+    ไฟล์: <code>dormi-edge/deploy/dormi-backend/deploy.sh</code> · ตรวจกับ server จริงแล้ว (read-only)</div>
+  </header>
+
+  <div class="card">
+    <div class="verdict">
+      <div class="big">✅</div>
+      <div>
+        <b>สรุป: พร้อมใช้งาน</b> — logic ถูกต้อง, ทดสอบ syntax ผ่าน, ตรวจกับ server จริงแล้วตรงทุกจุด
+        (ชื่อ container / network / env / DB ตรง). เจอ bug ความทนทาน 2 จุด <b>แก้ให้แล้ว</b>.
+        เหลือ "ข้อจำกัดที่ควรรู้" 3 ข้อ (ไม่ใช่ bug — เป็นธรรมชาติของ migration).
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ ทำอะไร ═══════ -->
+  <div class="card">
+    <h2>🎯 script นี้ทำอะไร</h2>
+    <p>ตอน deploy backend มันจะ <b>ดูว่า commit ที่ pull มามีไฟล์ migration เพิ่มใหม่มั้ย</b> แล้วเลือกเส้นทาง:</p>
+
+    <div class="split">
+      <div class="mini">
+        <h4>🟢 ไม่มี migration ใหม่</h4>
+        <p class="muted" style="margin:.2em 0">= commit แก้โค้ดธรรมดา</p>
+        <div class="flow">
+          <div class="step"><div class="n">1</div><div>pull code ใหม่</div></div>
+          <div class="step"><div class="n ok">2</div><div><code>up -d --build</code> ตามเดิม</div></div>
+        </div>
+        <p class="muted" style="font-size:.85rem">เร็วเท่าเดิม — ไม่ backup ไม่เสียเวลาโดยเปล่าประโยชน์</p>
+      </div>
+      <div class="mini">
+        <h4>🔵 มี migration ใหม่</h4>
+        <p class="muted" style="margin:.2em 0">= มีไฟล์เพิ่มใน <code>src/database/migrations</code></p>
+        <div class="flow">
+          <div class="step"><div class="n">1</div><div>📦 <b>Backup DB</b> (pg_dump บีบอัด)</div></div>
+          <div class="step"><div class="n">2</div><div>🏗️ build migration runner</div></div>
+          <div class="step"><div class="n">3</div><div>🚀 รัน <code>migration:run</code></div></div>
+          <div class="step"><div class="n ok">4</div><div>ผ่าน → deploy ต่อ</div></div>
+          <div class="step"><div class="n bad">✕</div><div>พัง → หยุด, คืน code เดิม, backup อยู่ครบ</div></div>
+        </div>
+      </div>
+    </div>
+
+    <h3>ทำไมต้อง "build migration runner" แยก?</h3>
+    <p>เพราะ image ที่รันจริง (runtime) <b>รัน migration ไม่ได้</b> — มันติดตั้งแบบ <code>--omit=dev</code> (ไม่มี
+    <code>ts-node</code>) และ copy มาแค่ <code>dist/</code> (ไม่มี <code>src/</code>) ส่วนคำสั่ง <code>migration:run</code>
+    ต้องใช้ทั้งสองอย่าง. ทางแก้: <code>docker build --target build</code> ดึง stage <code>build</code> ที่มีของครบ
+    มารันเฉพาะกิจ แล้วลบทิ้ง — <b>ไม่ต้องแตะ backend repo เลย</b>.</p>
+  </div>
+
+  <!-- ═══════ Server reality ═══════ -->
+  <div class="card">
+    <h2>🔍 ตรวจกับ server จริง <span class="badge b-ok">read-only</span></h2>
+    <p>remote เข้า <code>188.166.228.210</code> ด้วยคำสั่งอ่านอย่างเดียว (ไม่แก้อะไร) เพื่อยืนยันว่า script ตรงกับของจริง:</p>
+    <div class="tablewrap">
+    <table>
+      <tr><th>สิ่งที่ script อ้างอิง</th><th>ของจริงบน server</th><th>ตรงมั้ย</th></tr>
+      <tr><td><code>dormi_postgres</code> (ชื่อ container)</td><td class="kv">dormi_postgres · Up 13h (healthy)</td><td><span class="badge b-ok">ตรง</span></td></tr>
+      <tr><td><code>dormi_network</code></td><td class="kv">dormi_network มีอยู่</td><td><span class="badge b-ok">ตรง</span></td></tr>
+      <tr><td>ต่อ DB ผ่าน host <code>postgres</code></td><td class="kv">postgres alias resolve บน network ได้</td><td><span class="badge b-ok">ตรง</span></td></tr>
+      <tr><td>env <code>DATABASE_USER / NAME / PASSWORD</code></td><td class="kv">มีครบใน .env.production</td><td><span class="badge b-ok">ตรง</span></td></tr>
+      <tr><td>restore ใช้ <code>-U dormi -d dormi_v2</code></td><td class="kv">user=dormi · db=dormi_v2</td><td><span class="badge b-ok">ตรง</span></td></tr>
+      <tr><td>port binding (จากงานก่อนหน้า)</td><td class="kv">5432/tcp → 127.0.0.1:5432</td><td><span class="badge b-ok">deploy แล้ว</span></td></tr>
+      <tr><td>migration ที่รันไปแล้ว</td><td class="kv">InitialSchema1783266277045 (ตัวเดียว)</td><td><span class="badge b-ok">baseline</span></td></tr>
+      <tr><td>commit ล่าสุด <code>acacd1f</code> (bulk create rooms)</td><td class="kv">ไม่มี migration ใหม่ → guard จะ skip</td><td><span class="badge b-ok">ถูกต้อง</span></td></tr>
+      <tr><td>โฟลเดอร์ <code>/root/db-backups</code></td><td class="kv">ยังไม่มี → script <code>mkdir -p</code> ให้เอง</td><td><span class="badge b-ok">OK</span></td></tr>
+    </table>
+    </div>
+  </div>
+
+  <!-- ═══════ Review findings ═══════ -->
+  <div class="card">
+    <h2>🛠️ ผลรีวิว</h2>
+
+    <h3>Bug ที่เจอและแก้แล้ว</h3>
+
+    <div class="finding fixed">
+      <h4>1. <code>set -e</code> ตัด error handler ตอน pg_dump พัง <span class="badge b-fix">แก้แล้ว</span></h4>
+      <p>เดิมเขียน <code>docker exec ... pg_dump &gt; file</code> ลอยๆ — ถ้า pg_dump คืนค่า error, <code>set -e</code>
+      จะ <b>exit ทันที</b> ข้ามการ reset git ทิ้งสถานะค้าง. แก้โดยห่อ <code>if ! ...; then</code> ให้ handler ทำงานก่อน:</p>
+      <pre><span class="b">if</span> ! docker exec dormi_postgres sh -c 'pg_dump ... -Fc' &gt; <span class="y">"$BACKUP_FILE"</span>; <span class="b">then</span>
+    <span class="c"># ❌ pg_dump พัง → ลบไฟล์ว่าง + git reset + exit</span>
+<span class="b">fi</span></pre>
+    </div>
+
+    <div class="finding fixed">
+      <h4>2. <code>set -e</code> ตัด handler ตอน build migration runner พัง <span class="badge b-fix">แก้แล้ว</span></h4>
+      <p>ถ้า code ใหม่ compile ไม่ผ่าน → <code>docker build</code> พัง → เดิม exit ทันทีทิ้ง git ค้างที่ commit ใหม่.
+      แก้โดยห่อ <code>if !</code> เช่นกัน — build พังก็ <b>คืน code เดิม</b> ก่อน exit.</p>
+    </div>
+
+    <h3>จุดที่ตรวจแล้วถูกต้อง <span class="badge b-ok">ยืนยัน</span></h3>
+    <ul>
+      <li><b>backup ไม่ต้องรู้รหัสผ่าน</b> — <code>pg_dump -U "$POSTGRES_USER"</code> ดึง env จากในตัว container เอง (single-quote ให้ขยายฝั่ง container ไม่ใช่ฝั่ง host)</li>
+      <li><b><code>-e</code> override <code>--env-file</code></b> — บังคับ <code>DATABASE_HOST=postgres</code>, <code>PORT=5432</code> (ค่าเชื่อมภายใน container) ทับค่าใน env file ได้ถูกต้อง</li>
+      <li><b>ไม่ชนกับ scheduler</b> — scheduler ยัง <code>migrationsRun=true</code> ตอน boot แต่หลัง explicit migrate จะไม่เจอ pending → no-op (TypeORM เช็คตาราง <code>migrations</code> ก่อน)</li>
+      <li><b>rotate ถูก</b> — <code>ls -1t | tail -n +8</code> เก็บ 7 ไฟล์ใหม่สุด ลบที่เหลือ</li>
+      <li><b>ลำดับปลอดภัย</b> — backup → migrate เกิด <u>ก่อน</u> <code>up -d</code> เสมอ, postgres (persistent) ไม่ถูกแตะ</li>
+    </ul>
+  </div>
+
+  <!-- ═══════ Limitations ═══════ -->
+  <div class="card">
+    <h2>⚠️ ข้อจำกัดที่ควรรู้ <span class="muted" style="font-size:.8rem;font-weight:400">(ไม่ใช่ bug — ธรรมชาติของ migration)</span></h2>
+
+    <div class="finding note">
+      <h4>1. scheduler ยัง migrate เองตอน boot (fallback ไม่มี backup)</h4>
+      <p>ถ้ามี migration ค้างจากรอบก่อนที่ deploy.sh ไม่ทัน guard, scheduler จะ migrate ให้ตอน boot
+      <b>โดยไม่มี backup</b>. ถ้าอยากให้ deploy.sh เป็นทางเดียวจริงๆ ต้องปิด <code>migrationsRun</code> ใน backend
+      (คนละ repo — ทำทีหลังได้).</p>
+    </div>
+
+    <div class="finding note">
+      <h4>2. TypeORM ห่อ transaction ให้ "เกือบ" ทุกกรณี</h4>
+      <p>default Postgres รัน migration ใน transaction (พังแล้ว rollback อัตโนมัติ) — <u>ยกเว้น</u>
+      migration ที่ตั้ง <code>transaction = false</code> เอง หรือใช้ <code>CREATE INDEX CONCURRENTLY</code>.
+      กรณีพวกนี้ <b>backup คือตัวกันพังจริง</b> (จึงต้อง backup ก่อนเสมอ).</p>
+    </div>
+
+    <div class="finding note">
+      <h4>3. rollback code หลัง migrate แล้ว = schema ล้ำหน้า</h4>
+      <p>ถ้า app พังหลัง migrate สำเร็จ แล้วต้อง rollback code เก่า → DB จะมี schema ใหม่กว่า code.
+      <b>migration แบบเพิ่ม (additive)</b> code เก่ามักยังทำงานได้; <b>แบบลบ/แก้ (destructive)</b> อาจต้อง
+      restore DB จาก backup. script พิมพ์คำสั่ง <code>pg_restore</code> ให้พร้อมในตอน rollback.</p>
+      <p class="muted" style="font-size:.85rem">💡 แนวปฏิบัติ: เขียน migration แบบ additive (expand → contract) จะปลอดภัยกับ rolling deploy ที่สุด</p>
+    </div>
+  </div>
+
+  <!-- ═══════ Safety table ═══════ -->
+  <div class="card">
+    <h2>🛡️ สรุปการกันพังแต่ละกรณี</h2>
+    <div class="tablewrap">
+    <table>
+      <tr><th>เกิดอะไรขึ้น</th><th>script ทำอะไร</th><th>ข้อมูลปลอดภัยมั้ย</th></tr>
+      <tr><td>ไม่มี migration ใหม่</td><td>deploy ปกติ ข้าม backup</td><td><span class="badge b-ok">ปลอดภัย</span></td></tr>
+      <tr><td>deploy ครั้งแรก (ยังไม่มี postgres)</td><td>ข้าม explicit migrate → scheduler จัดการ</td><td><span class="badge b-ok">ปลอดภัย</span></td></tr>
+      <tr><td>pg_dump พัง / backup ว่าง</td><td>ยกเลิก deploy, คืน code เดิม (ไม่ migrate)</td><td><span class="badge b-ok">ปลอดภัย</span></td></tr>
+      <tr><td>build code ใหม่ไม่ผ่าน</td><td>คืน code เดิม, container เดิมยังรัน</td><td><span class="badge b-ok">ปลอดภัย</span></td></tr>
+      <tr><td>migration พัง</td><td>TypeORM rollback DB + git คืน code เดิม + backup อยู่</td><td><span class="badge b-ok">ปลอดภัย</span></td></tr>
+      <tr><td>app พังหลัง migrate</td><td>rollback code + เตือน + ให้คำสั่ง restore</td><td><span class="badge b-warn">มี backup ให้กู้</span></td></tr>
+    </table>
+    </div>
+  </div>
+
+  <!-- ═══════ Next ═══════ -->
+  <div class="card">
+    <h2>📋 ขั้นตอนถัดไป</h2>
+    <ul>
+      <li><b>Push เอง</b> (ตามกฎ) — แก้ที่ local เสร็จแล้ว, ยังไม่ได้ push ให้</li>
+      <li><b>ทดสอบตอน push:</b> commit ธรรมดาต้องขึ้น <code>✅ ไม่มี migration ใหม่</code>; commit ที่มี migration ต้องเห็น log <code>📦 → 🏗️ → 🚀 → ✅</code> และมีไฟล์ใน <code>/root/db-backups/</code></li>
+      <li><b>อยากให้แน่นขึ้น (ทำทีหลัง):</b> ปิด <code>migrationsRun</code> ใน backend ให้ deploy.sh เป็นทางเดียว · เพิ่ม health-check <code>/whoami</code> แบบลึกในบล็อกตรวจหลัง deploy</li>
+    </ul>
+    <p class="pill-row">
+      <span class="badge b-ok">syntax ผ่าน (bash -n)</span>
+      <span class="badge b-ok">ตรงกับ server จริง</span>
+      <span class="badge b-fix">bug 2 จุด แก้แล้ว</span>
+      <span class="badge b-warn">ยังไม่ push (คุณทำเอง)</span>
+    </p>
+  </div>
+
+  <div class="foot">
+    รายงานสร้างจากการอ่านโค้ด + ตรวจ server แบบ read-only (docker ps / psql SELECT / git log) — ไม่มีการแก้ไขใดๆ บน server<br>
+    Dormi · deploy/dormi-backend/deploy.sh
+  </div>
+
+</div>
+</body>
+</html>

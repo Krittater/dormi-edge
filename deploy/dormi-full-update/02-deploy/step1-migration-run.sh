@@ -1,0 +1,104 @@
+#!/bin/bash
+# 02-deploy/step1-migration-run.sh — รัน migration (ไม่ revert เอง — workflow เรียก revert)
+# ------------------------------------------------------------------
+# 1. เช็ค diff ใน folder migration (deployed HEAD vs origin) — ไม่มี diff = ไม่มี migration → ข้าม
+# 2. มี migration → เรียก 01-prepare/backup.sh (backup ทั้งก้อนก่อน)
+# 3. เขียน marker (ก่อน migrate) = "รอบนี้แตะ schema" + เก็บ path backup
+# 4. รัน migration → พัง = exit 1 (job 'revert-db' ใน workflow จะ restore เอง โดยอ่าน marker)
+#
+# รันบน server (ผ่าน job 'migration'):  bash step1-migration-run.sh
+set -uo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+BACKUP_SH="$HERE/../01-prepare/backup.sh"
+
+# ========= config =========
+BE_DIR="/root/dormi-backend-2"
+BE_BRANCH="master"
+MIGRATION_DIR="src/database/migrations"
+MIGRATE_IMAGE="dormi-migrate:latest"
+COMPOSE_DIR="docker"
+ENV_FILE=".env.production"
+BACKUP_DIR="/root/dormi-releases/db-backups"
+# marker: เขียนเมื่อ migrate สำเร็จ → step2/3 อ่านเพื่อรู้ว่าต้อง revert DB ด้วยมั้ย
+#   (เก็บ path backup ไว้ในไฟล์ด้วย → revert ใช้ backup ตัวเป๊ะของ release นี้)
+MARKER="/root/dormi-releases/snapshots/latest/MIGRATION_RAN"
+
+echo "========================"
+echo " Step 1 — Migration"
+echo "========================"
+
+[ -d "$BE_DIR/.git" ] || { echo "❌ ไม่พบ git repo ที่ $BE_DIR"; exit 1; }
+
+# ========= 1. เช็ค diff ใน folder migration =========
+if ! git -C "$BE_DIR" fetch -q origin "$BE_BRANCH"; then
+  echo "❌ fetch origin/$BE_BRANCH ไม่สำเร็จ"; exit 1
+fi
+# เทียบ HEAD (commit ที่ deploy อยู่) กับ origin (เป้าหมาย) เฉพาะใน folder migration
+MIG_DIFF="$(git -C "$BE_DIR" diff --name-only HEAD "origin/$BE_BRANCH" -- "$MIGRATION_DIR" 2>/dev/null || true)"
+
+if [ -z "$MIG_DIFF" ]; then
+  echo "✅ ไม่มี diff ใน $MIGRATION_DIR — ไม่มี migration ใหม่ → ข้าม step นี้"
+  exit 0
+fi
+
+echo "🔄 พบการเปลี่ยนใน migration (= มี migration ต้องรัน):"
+echo "$MIG_DIFF" | sed 's/^/   • /'
+
+# ========= 2. backup ก่อน (เรียก 00-prepare/backup.sh) =========
+echo "📦 เรียก backup ก่อน migrate..."
+if ! bash "$BACKUP_SH"; then
+  echo "❌ backup ล้มเหลว — ยกเลิก (ไม่ migrate โดยไม่มี backup เด็ดขาด)"
+  exit 1
+fi
+BACKUP_FILE="$(ls -1t "$BACKUP_DIR"/*.dump 2>/dev/null | head -1 || true)"
+if [ -z "$BACKUP_FILE" ]; then
+  echo "❌ หา backup ที่เพิ่งสร้างไม่เจอ — ยกเลิก"
+  exit 1
+fi
+echo "   ↳ backup: $BACKUP_FILE"
+
+# ========= 3. pull clone ไป target + build migration runner =========
+# ต้อง pull เพื่อให้ไฟล์ migration ใหม่อยู่ใน clone (build runner จะได้เห็น)
+git -C "$BE_DIR" reset --hard "origin/$BE_BRANCH"
+
+echo "🏗️  build migration runner (build stage — มี ts-node + src)..."
+if ! docker build --target build -t "$MIGRATE_IMAGE" "$BE_DIR"; then
+  echo "❌ build runner ล้มเหลว (code ใหม่ compile ไม่ผ่าน?) — ยังไม่ได้แตะ DB, ยกเลิก"
+  exit 1
+fi
+
+# ========= 4. เขียน marker "ก่อน" migrate =========
+# marker = "รอบนี้แตะ schema (มี backup)" — job revert-db ใน workflow อ่านเพื่อรู้ว่าต้อง restore
+#   • เก็บ path backup ตัวเป๊ะของรอบนี้ → revert0 restore จากตัวนี้
+#   • เขียนก่อน migrate → migrate พังก็ยังมี marker → revert-db restore ได้
+if [ -d "$(dirname "$MARKER")" ]; then
+  printf '%s\n' "$BACKUP_FILE" > "$MARKER"
+  echo "🔖 marker: $MARKER (backup=$BACKUP_FILE)"
+else
+  echo "⚠️ ไม่พบ snapshot latest — ไม่ได้เขียน marker (revert-db จะไม่ restore อัตโนมัติ)"
+fi
+
+# ========= 5. run migration =========
+# NOTE: step นี้ "ไม่ revert เอง" — พังแล้ว exit 1 → job 'revert-db' ใน workflow จัดการ restore
+echo "🚀 migration:run..."
+if docker run --rm \
+     --network dormi_network \
+     --env-file "$BE_DIR/$COMPOSE_DIR/$ENV_FILE" \
+     -e NODE_ENV=production -e DATABASE_HOST=postgres -e DATABASE_PORT=5432 \
+     "$MIGRATE_IMAGE" npm run migration:run; then
+  docker rmi "$MIGRATE_IMAGE" >/dev/null 2>&1 || true
+  echo "========================"
+  echo " ✅ MIGRATION สำเร็จ"
+  echo " STATUS: SUCCESS"
+  echo "========================"
+  exit 0
+else
+  docker rmi "$MIGRATE_IMAGE" >/dev/null 2>&1 || true
+  echo "========================"
+  echo " ❌ MIGRATION พัง — exit 1"
+  echo "    → job 'revert-db' ใน workflow จะ restore ให้ (revert0 อ่าน marker + backup)"
+  echo " STATUS: MIGRATION FAILED"
+  echo "========================"
+  exit 1
+fi

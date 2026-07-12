@@ -57,6 +57,10 @@ echo "📌 NEW COMMIT (หลัง pull): $NEW_COMMIT"
 # =========================
 echo "Build and restart containers..."
 
+# ส่ง commit ที่ deploy เข้า container → โผล่ที่ GET /version (compose อ่าน ${APP_VERSION}, runtime env)
+export APP_VERSION="$(git rev-parse --short HEAD)"
+echo "🔖 APP_VERSION=$APP_VERSION"
+
 docker compose up -d --build
 
 docker image prune -f
@@ -80,6 +84,9 @@ if [ ! -z "$FAILED" ]; then
     echo "↩️ Rollback TO:   $OLD_COMMIT"
 
     git reset --hard "$OLD_COMMIT"
+
+    # /version สะท้อน commit เก่าที่ rollback กลับมา
+    export APP_VERSION="$(git rev-parse --short HEAD)"
 
     docker compose up -d --build --force-recreate
 

@@ -1,0 +1,146 @@
+# Full-Update (manual) — deploy ทั้ง stack แบบเห็น step ละเอียด + revert เป็น job แยก
+# ─────────────────────────────────────────────────────────────────────────
+# trigger จาก local (ไม่ต้อง push):
+#   gh workflow run full-update.yml --repo Krittater/dormi-edge
+#   gh run watch
+#
+# ★ การส่งค่า snapshot → revert: ไม่ได้ส่งผ่าน GitHub เลย!
+#   ทุก job SSH เข้า "server เดียวกัน" → ค่าอยู่บนไฟล์ server:
+#     /root/dormi-releases/snapshots/latest/snapshot.env  (image :prev, commit)
+#     /root/dormi-releases/snapshots/latest/MIGRATION_RAN (marker + path backup)
+#   revert scripts อ่านไฟล์พวกนี้เอง → ไม่ต้องใช้ job outputs / artifact
+#
+# GitHub Secrets (edge repo → Settings → Secrets → Actions):
+#   PROD_SERVER, SERVER_USER, SSH_KEY
+
+name: Full Update (manual)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: full-update
+  cancel-in-progress: false
+
+jobs:
+  # ═══════ DEPLOY PATH (ต่อกันด้วย needs — job ก่อนผ่านถึงรันต่อ) ═══════
+  prep:
+    name: "0 · pull edge scripts"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SERVER }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: cd /root/dormi-edge && git pull
+
+  check:
+    name: "1 · check lockfile (FE+BE)"
+    needs: prep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SERVER }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: cd /root/dormi-edge/deploy/dormi-full-update && bash 00-check/check0-lockfile-match.sh
+
+  snapshot:
+    name: "2 · snapshot (tag image :prev)"
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SERVER }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: cd /root/dormi-edge/deploy/dormi-full-update && bash 01-prepare/snapshot.sh
+
+  migration:
+    name: "3 · migration (diff→backup→run)"
+    needs: snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SERVER }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: cd /root/dormi-edge/deploy/dormi-full-update && bash 02-deploy/step1-migration-run.sh
+
+  backend:
+    name: "4 · deploy backend"
+    needs: migration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SERVER }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: cd /root/dormi-edge/deploy/dormi-full-update && bash 02-deploy/step2-backend-deploy.sh
+
+  frontend:
+    name: "5 · deploy frontend"
+    needs: backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SERVER }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: cd /root/dormi-edge/deploy/dormi-full-update && bash 02-deploy/step3-frontend-deploy.sh
+
+  # ═══════ REVERT (รันเฉพาะเมื่อพัง / skip เมื่อผ่าน — เรียงลำดับ FE→BE→DB) ═══════
+  revert-frontend:
+    name: "R2 · revert frontend (image :prev)"
+    needs: frontend
+    if: ${{ always() && needs.frontend.result == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SERVER }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: cd /root/dormi-edge/deploy/dormi-full-update && bash 03-revert/revert2-deploy-frontend-old-version.sh
+
+  revert-backend:
+    name: "R1 · revert backend (image :prev)"
+    needs: [backend, frontend, revert-frontend]
+    if: ${{ always() && (needs.backend.result == 'failure' || needs.frontend.result == 'failure') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SERVER }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: cd /root/dormi-edge/deploy/dormi-full-update && bash 03-revert/revert1-deploy-backend-old-version.sh
+
+  revert-db:
+    name: "R0 · revert database (marker-gated)"
+    needs: [migration, backend, frontend, revert-backend]
+    if: ${{ always() && (needs.migration.result == 'failure' || needs.backend.result == 'failure' || needs.frontend.result == 'failure') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SERVER }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          # revert0 เช็ค marker เอง — ไม่มี migration รอบนี้ = ข้าม (ไม่แตะ DB)
+          script: cd /root/dormi-edge/deploy/dormi-full-update && bash 03-revert/revert0-restore-db.sh
