@@ -125,7 +125,7 @@ jobs:
           # VERSION_INPUT ว่าง = auto +0.0.1 ; มีค่า = override
           script: cd /root/dormi-edge/deploy/dormi-full-update && bash 02-deploy/step4-version-manager.sh "$VERSION_INPUT"
 
-  # ═══════ REVERT (รันเฉพาะเมื่อพัง / skip เมื่อผ่าน — เรียงลำดับ FE→BE→DB) ═══════
+  # ═══════ REVERT (รันเฉพาะเมื่อพัง / skip เมื่อผ่าน — เรียง FE→BE · DB = migration fail เท่านั้น) ═══════
   revert-frontend:
     name: "R2 · revert frontend (image :prev)"
     needs: frontend
@@ -154,10 +154,14 @@ jobs:
           script_stop: true
           script: cd /root/dormi-edge/deploy/dormi-full-update && bash 03-revert/revert1-deploy-backend-old-version.sh
 
+  # ★ นโยบาย DB revert (ปิด H1 — หน้าต่างข้อมูลหาย):
+  #   อัตโนมัติเฉพาะ "migration fail" — ตอนนั้นยังไม่มี traffic บน schema ใหม่ → restore ปลอดภัย
+  #   backend/frontend fail = ผู้ใช้เขียนข้อมูลระหว่าง deploy ไปแล้ว → restore อัตโนมัติจะลบข้อมูลจริง
+  #   → กรณีนั้นถ้าจำเป็น (migration เป็น destructive) ให้คนสั่งเองผ่าน workflow "Revert DB (manual)"
   revert-db:
-    name: "R0 · revert database (marker-gated)"
-    needs: [migration, backend, frontend, revert-backend]
-    if: ${{ always() && (needs.migration.result == 'failure' || needs.backend.result == 'failure' || needs.frontend.result == 'failure') }}
+    name: "R0 · revert database (migration fail เท่านั้น)"
+    needs: migration
+    if: ${{ always() && needs.migration.result == 'failure' }}
     runs-on: ubuntu-latest
     steps:
       - uses: appleboy/ssh-action@v1.2.0

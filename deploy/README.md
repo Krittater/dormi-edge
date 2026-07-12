@@ -116,10 +116,15 @@ prep ─► check ─► snapshot ─► migration ─► backend ─► fronten
 (pull) (lock)  (tag :prev)  (diff→bkup   (build+    (build+     (บันทึก
                             →run→marker)  health)    health)     release)
 
-พังตรงไหน → ถอยแค่ที่จำเป็น (เรียง FE→BE→DB):
-  migration พัง  → revert-db
-  backend พัง    → revert-backend + revert-db
-  frontend พัง   → revert-frontend + revert-backend + revert-db
+พังตรงไหน → ถอยแค่ที่จำเป็น (เรียง FE→BE):
+  migration พัง  → revert-db (อัตโนมัติ — ยังไม่มี traffic บน schema ใหม่)
+  backend พัง    → revert-backend                    ★ DB ไม่ถอยอัตโนมัติ
+  frontend พัง   → revert-frontend + revert-backend  ★ DB ไม่ถอยอัตโนมัติ
+
+★ นโยบาย DB revert: อัตโนมัติเฉพาะ migration fail เท่านั้น
+  BE/FE พัง = ผู้ใช้เขียนข้อมูลระหว่าง deploy ไปแล้ว → restore อัตโนมัติจะลบข้อมูลจริง
+  → migration แบบ additive (กติกาปกติ) ไม่ต้องถอย DB เลย
+  → destructive แล้วต้องถอยจริง: สั่งมือ `gh workflow run revert-db.yml`
 ```
 
 ### 3.2 ไฟล์ + หน้าที่ (เรียงตามที่รัน)
@@ -129,14 +134,14 @@ prep ─► check ─► snapshot ─► migration ─► backend ─► fronten
 | 0 | *(workflow prep)* | `git pull` edge clone บน server | หยุด |
 | 1 | `00-check/check0-lockfile-match.sh` | `npm ci --dry-run` (node:22-alpine) เช็ค lock FE+BE ตรง package.json — บอกฝั่งที่ MISMATCH | หยุด (ยังไม่ deploy) |
 | 2 | `01-prepare/snapshot.sh` | เช็ค /version 200 → **tag image รันอยู่เป็น `:prev`** → เขียน `snapshot.env` (**ไม่แตะ DB**) | หยุด |
-| 3 | `02-deploy/step1-migration-run.sh` | diff โฟลเดอร์ migration; มีใหม่ → เรียก `backup.sh` → เขียน `MIGRATION_RAN` (ก่อน migrate) → build runner (`--target build`) → `migration:run` | exit 1 → revert-db |
+| 3 | `02-deploy/step1-migration-run.sh` | หา migration ที่ต้องรันจริง: git diff (`--diff-filter=A` เฉพาะไฟล์เพิ่มใหม่) **+ เทียบตาราง `migrations` ใน DB** (ความจริงสุดท้าย — กัน git state หลอกหลัง revert) → มี pending → `backup.sh` → เขียน `MIGRATION_RAN` (ก่อน migrate) → build runner → `migration:run` | exit 1 → revert-db |
 | 3b | `01-prepare/backup.sh` | (ถูก step1 เรียก) `pg_dump -Fc --no-owner` → `.part` → verify `pg_restore -l` → `mv` → เก็บ 20 ไฟล์ | ยกเลิก migrate |
 | 4 | `02-deploy/step2-backend-deploy.sh` | `reset --hard origin/master` → `export APP_VERSION` → `compose up --build` → poll /version = commit ใหม่ | exit 1 → revert-backend+db |
 | 5 | `02-deploy/step3-frontend-deploy.sh` | เหมือน step2 แต่ frontend (branch main) | exit 1 → revert ทั้งชุด |
 | 6 | `02-deploy/step4-version-manager.sh` | auto `patch +1` (หรือ override) → เขียน `VERSION`+`RELEASES.log` → push `releases/` เข้า git | เตือน (ไม่ revert) |
-| R2 | `03-revert/revert2-...frontend...` | `docker tag dormi-web:prev …:latest` → `compose up --no-build --force-recreate` | — |
-| R1 | `03-revert/revert1-...backend...` | retag `dormi-api:prev` (+scheduler) → recreate ไม่ build | — |
-| R0 | `03-revert/revert0-restore-db.sh` | **marker-gated**: ไม่มี marker = ข้าม; มี = rename DB เก่าเก็บไว้ (`<db>_failed_<ts>`) → create ใหม่ → `pg_restore` | — |
+| R2 | `03-revert/revert2-...frontend...` | `docker tag dormi-web:prev …:latest` → `compose up --no-build --force-recreate` + **reset clone → FE_COMMIT** | — |
+| R1 | `03-revert/revert1-...backend...` | retag `dormi-api:prev` (+scheduler) → recreate ไม่ build + **reset clone → BE_COMMIT** (กัน detection เพี้ยนรอบถัดไป) | — |
+| R0 | `03-revert/revert0-restore-db.sh` | **marker-gated**: ไม่มี marker = ข้าม; มี = rename DB เก่าเก็บไว้ (`<db>_failed_<ts>`) → create ใหม่ → `pg_restore` → **ใช้แล้วทิ้ง marker** (`.restored-<ts>` — กัน restore ซ้ำ) · ระบุไฟล์เอง = ข้าม gate | — |
 
 ### 3.3 ★ กลไกสำคัญ: ส่งค่า snapshot → revert ผ่าน "ไฟล์บน server" ไม่ใช่ GitHub
 
@@ -230,10 +235,17 @@ cd /root/dormi-edge/deploy/dormi-frontend && bash deploy.sh    # frontend เท
 |---|---|---|
 | check (lockfile) | หยุด | ยังไม่แตะอะไร — ไปแก้ lock ฝั่งที่ MISMATCH |
 | snapshot | หยุด | ยังไม่ deploy |
-| migration | revert-db (ถ้ามี marker) | DB คืนจาก backup, code ยังของเดิม |
-| backend | revert-backend + revert-db | BE กลับ image `:prev`, DB คืน (ถ้าเคย migrate) |
-| frontend | revert-frontend + revert-backend + revert-db | ถอยทั้ง stack กลับจุดกลับเดิม |
+| migration | revert-db (marker-gated) | DB คืนจาก backup, code ยังของเดิม — ปลอดภัยเพราะยังไม่มี traffic บน schema ใหม่ |
+| backend | revert-backend เท่านั้น | BE กลับ `:prev` + clone reset — **DB ไม่ถอยอัตโนมัติ** (กันข้อมูลผู้ใช้หาย) |
+| frontend | revert-frontend + revert-backend | FE/BE กลับ `:prev` — **DB ไม่ถอยอัตโนมัติ** |
 | version (step4) | **ไม่ revert** | deploy สำเร็จแล้ว แค่บันทึก/​push พลาด — sync มือได้ |
+
+**ถอย DB เอง (เมื่อ migration เป็น destructive และ BE/FE พัง):**
+```bash
+gh workflow run revert-db.yml --repo Krittater/dormi-edge          # ใช้ backup จาก marker
+gh workflow run revert-db.yml -f backup_file=/root/dormi-releases/db-backups/<ไฟล์>.dump
+# หรือบน server: bash 03-revert/revert0-restore-db.sh [ไฟล์]
+```
 
 ---
 

@@ -2,7 +2,8 @@
 # 02-deploy/step3-frontend-deploy.sh — deploy frontend (ไม่ revert เอง — workflow เรียก revert)
 # ------------------------------------------------------------------
 # deploy → health check ผ่าน /version → พัง = exit 1
-#   job 'revert-frontend' + 'revert-backend' + 'revert-db' ใน workflow จะ revert ทั้งชุด
+#   job 'revert-frontend' + 'revert-backend' (image :prev) จะ revert ให้
+#   DB ไม่ถอยอัตโนมัติ (revert-db.yml = มือ — กันข้อมูลระหว่าง deploy หาย)
 # รันบน server (ผ่าน job 'frontend'):  bash step3-frontend-deploy.sh
 set -uo pipefail
 
@@ -54,10 +55,16 @@ if [ "$DEPLOY_OK" = true ] && health_poll "$WEB_HOST" "$TARGET_SHORT"; then
 fi
 
 # --- พัง → exit 1 (ไม่ revert เอง) ---
-# workflow: job 'frontend' fail → revert-frontend + revert-backend + revert-db รันต่อ (ถอยทั้งชุด)
+# workflow: job 'frontend' fail → revert-frontend + revert-backend (image :prev)
+# ★ DB ไม่ถูกถอยอัตโนมัติ (กันข้อมูลผู้ใช้ที่เขียนระหว่าง deploy หาย)
 echo "========================"
 echo " ❌ FRONTEND พัง (build/health) — exit 1"
-echo "    → job revert-frontend + revert-backend + revert-db ใน workflow จะถอยทั้งชุด"
+echo "    → job revert-frontend + revert-backend จะคืน image :prev ให้ (DB ไม่ถูกถอยอัตโนมัติ)"
+if [ -f /root/dormi-releases/snapshots/latest/MIGRATION_RAN ]; then
+  echo "    ⚠️ รอบนี้มี migration — schema ล้ำหน้า code เก่า:"
+  echo "       • additive (เพิ่ม column/table) → ปล่อยได้ code เก่ารันต่อได้"
+  echo "       • destructive → ถอย DB เอง: gh workflow run revert-db.yml"
+fi
 echo " STATUS: FRONTEND FAILED"
 echo "========================"
 exit 1

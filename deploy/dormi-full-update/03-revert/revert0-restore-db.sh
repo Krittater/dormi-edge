@@ -10,36 +10,42 @@
 #
 # ใช้:  bash revert0-restore-db.sh [backup-file]
 #       ไม่ใส่ arg → อ่าน backup จาก marker MIGRATION_RAN (ตัวเป๊ะของรอบนี้)
+#       ใส่ arg    → restore จากไฟล์นั้นตรงๆ ข้าม marker gate (คนสั่งเองผ่าน revert-db.yml)
 #
-# ★ ตัดสินใจเองว่าจะ restore มั้ย ผ่าน marker:
+# ★ ตัดสินใจเองว่าจะ restore มั้ย ผ่าน marker (เมื่อไม่มี arg):
 #   - ไม่มี marker = รอบนี้ไม่มี migration → schema ไม่เปลี่ยน → ข้าม (exit 0)
 #   - มี marker    = มี migration (schema เปลี่ยน) → restore จาก backup ที่ marker ชี้
+# ★ marker ใช้แล้วทิ้ง: restore สำเร็จ → rename เป็น .restored-<ts>
+#   กัน re-run job / รันมือซ้ำ ไป restore ทับข้อมูลที่เขียนหลัง restore แรก
 set -uo pipefail
 
 PG_CONTAINER="dormi_postgres"
 BACKUP_DIR="/root/dormi-releases/db-backups"
 MARKER="/root/dormi-releases/snapshots/latest/MIGRATION_RAN"
+BACKUP_ARG="${1:-}"                 # ระบุไฟล์เอง = ข้าม marker gate
 
 echo "========================"
 echo " Revert — restore DB (rename เก่าเก็บไว้ ไม่ drop)"
 echo "========================"
 
 # ========= gate: ไม่มี migration รอบนี้ → ไม่ต้อง restore =========
-if [ ! -f "$MARKER" ]; then
-  echo "ℹ️ ไม่มี marker MIGRATION_RAN (รอบนี้ไม่มี migration) → schema ไม่เปลี่ยน"
+# (bypass เมื่อระบุไฟล์ backup มาเอง — นั่นคือคำสั่งตรงจากคน)
+if [ -z "$BACKUP_ARG" ] && [ ! -f "$MARKER" ]; then
+  echo "ℹ️ ไม่มี marker MIGRATION_RAN (รอบนี้ไม่มี migration หรือถูก restore ไปแล้ว) → schema ไม่เปลี่ยน"
   echo "   ข้าม restore DB (ไม่แตะฐานข้อมูล)"
+  echo "   ถ้าต้องการ restore จริงๆ: ระบุไฟล์เอง → bash revert0-restore-db.sh <backup.dump>"
   echo " STATUS: SKIP"
   exit 0
 fi
 
 # ========= หา backup (arg > marker) =========
-BACKUP_FILE="${1:-$(cat "$MARKER" 2>/dev/null || true)}"
+BACKUP_FILE="${BACKUP_ARG:-$(cat "$MARKER" 2>/dev/null || true)}"
 if [ -z "$BACKUP_FILE" ] || [ ! -s "$BACKUP_FILE" ]; then
   echo "❌ ไม่พบไฟล์ backup (${BACKUP_FILE:-<ว่าง>}) ทั้งจาก arg และ marker"
   echo " STATUS: FAILED"
   exit 1
 fi
-echo "📄 backup (จาก marker): $BACKUP_FILE"
+echo "📄 backup ($([ -n "$BACKUP_ARG" ] && echo 'ระบุเอง' || echo 'จาก marker')): $BACKUP_FILE"
 
 # ========= เช็ค postgres + อ่านชื่อ user/db =========
 if ! docker ps --format '{{.Names}}' | grep -q "^${PG_CONTAINER}$"; then
@@ -74,6 +80,11 @@ echo "✅ rename เก่า + สร้าง $DB_NAME ใหม่ (ว่า
 # ========= 2. restore backup ลง DB ใหม่ =========
 echo "📦 restore เข้า $DB_NAME ..."
 if docker exec -i "$PG_CONTAINER" pg_restore -U "$DB_USER" -d "$DB_NAME" --no-owner < "$BACKUP_FILE"; then
+  # ★ ใช้แล้วทิ้ง marker — restore เป็น "ครั้งเดียวต่อ marker" (กัน re-run ทับข้อมูลใหม่)
+  if [ -f "$MARKER" ]; then
+    mv "$MARKER" "${MARKER}.restored-$(date +%Y%m%d_%H%M%S)" 2>/dev/null \
+      && echo "🔖 marker ถูกใช้แล้ว → เก็บเป็น ${MARKER##*/}.restored-* (รันซ้ำจะ SKIP)"
+  fi
   echo "========================"
   echo " ✅ RESTORE สำเร็จ"
   echo " db ปัจจุบัน    : $DB_NAME (คืนจาก backup แล้ว)"

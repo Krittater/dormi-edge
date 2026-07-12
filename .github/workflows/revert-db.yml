@@ -1,0 +1,48 @@
+# Revert DB (manual) — restore ฐานข้อมูลจาก backup "โดยการตัดสินใจของคน"
+# ─────────────────────────────────────────────────────────────────────────
+# ใช้เมื่อ: full-update พังที่ backend/frontend "และ" รอบนั้นมี migration แบบ destructive
+#   จน backend เก่า (:prev) ทำงานกับ schema ใหม่ไม่ได้ → ต้องถอย DB ด้วยตัวเอง
+#
+# ★ ทำไมไม่อัตโนมัติ: restore = ลบข้อมูลที่ผู้ใช้เขียนระหว่าง deploy (หลายนาที)
+#   migration แบบ additive (เพิ่ม column/table — กติกาปกติของ repo) ไม่ต้องถอย DB เลย
+#
+# trigger จาก local:
+#   gh workflow run revert-db.yml --repo Krittater/dormi-edge
+#   gh workflow run revert-db.yml --repo Krittater/dormi-edge \
+#     -f backup_file=/root/dormi-releases/db-backups/<ไฟล์>.dump
+#
+# พฤติกรรม:
+#   - เว้นว่าง backup_file → ใช้ตัวที่ marker MIGRATION_RAN ชี้ (ของรอบล่าสุดที่ migrate)
+#     ถ้า marker ถูกใช้ไปแล้ว/ไม่มี → script จะ SKIP อย่างปลอดภัย
+#   - ระบุ backup_file → restore จากไฟล์นั้นตรงๆ (ข้าม marker gate — คนสั่งเอง)
+#   - ของเก่าไม่ถูก drop: ถูก rename เก็บเป็น <db>_failed_<ts> เสมอ
+
+name: Revert DB (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_file:
+        description: 'path ไฟล์ backup บน server (เว้นว่าง = ใช้ตัวที่ marker MIGRATION_RAN ชี้)'
+        required: false
+        default: ''
+
+concurrency:
+  group: full-update        # แชร์ group กับ full-update — ไม่รันชนกัน
+  cancel-in-progress: false
+
+jobs:
+  revert-db:
+    name: "R0 · restore DB (manual decision)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        env:
+          BACKUP_FILE: ${{ inputs.backup_file }}
+        with:
+          host: ${{ secrets.PROD_SERVER }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: BACKUP_FILE
+          script_stop: true
+          script: cd /root/dormi-edge/deploy/dormi-full-update && bash 03-revert/revert0-restore-db.sh "$BACKUP_FILE"

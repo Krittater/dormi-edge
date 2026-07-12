@@ -38,6 +38,17 @@ else
   echo "⚠️ ไม่มี scheduler image :prev — recreate เฉพาะ api (scheduler คงเวอร์ชันปัจจุบัน)"
 fi
 
+# ★ คืน git clone ให้ตรงกับ image ที่ revert กลับ (ปิด H2)
+#   ไม่งั้น clone ค้างที่ commit ใหม่ → full-update รอบถัดไป diff มองไม่เห็น migration
+#   → ข้าม backup/marker ทั้งที่ DB ถูก restore กลับ schema เก่าไปแล้ว
+if [ -n "${BE_COMMIT:-}" ] && [ -d "$BE_DIR/.git" ]; then
+  if git -C "$BE_DIR" reset --hard "$BE_COMMIT" >/dev/null 2>&1; then
+    echo "🔁 reset clone → ${BE_COMMIT:0:7} (ให้ตรงกับ image ที่คืน)"
+  else
+    echo "⚠️ reset clone ไป $BE_COMMIT ไม่สำเร็จ (ไม่บล็อก revert — แต่รอบหน้า detection พึ่ง DB-check)"
+  fi
+fi
+
 # /version สะท้อน commit เก่าที่คืนกลับ
 export APP_VERSION="${BE_COMMIT:0:7}"
 

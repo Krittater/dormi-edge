@@ -10,9 +10,11 @@
 # ลำดับ:
 #   1. check lockfile   พัง → หยุด (ยังไม่ deploy)
 #   2. snapshot         พัง → หยุด
-#   3. migration        พัง → revert DB
-#   4. backend          พัง → revert BE + DB
-#   5. frontend         พัง → revert FE + BE + DB
+#   3. migration        พัง → revert DB (อัตโนมัติ — ยังไม่มี traffic บน schema ใหม่)
+#   4. backend          พัง → revert BE            (★ DB ไม่ถอยอัตโนมัติ)
+#   5. frontend         พัง → revert FE + BE       (★ DB ไม่ถอยอัตโนมัติ)
+#   ★ DB revert กรณี 4/5 = ตัดสินใจมือ (bash 03-revert/revert0-restore-db.sh หรือ revert-db.yml)
+#     เหตุผล: restore จะลบข้อมูลที่ผู้ใช้เขียนระหว่าง deploy — additive migration ไม่ต้องถอย DB
 #
 # รันบน server:  bash run-all.sh [X.Y.Z]
 #   ใส่ X.Y.Z = override release version ; เว้นว่าง = auto +0.0.1
@@ -23,11 +25,22 @@ R0="$HERE/03-revert/revert0-restore-db.sh"
 R1="$HERE/03-revert/revert1-deploy-backend-old-version.sh"
 R2="$HERE/03-revert/revert2-deploy-frontend-old-version.sh"
 
-# ตัวจัดการ revert ต่อ step (เรียง FE→BE→DB เหมือน workflow)
+MARKER="/root/dormi-releases/snapshots/latest/MIGRATION_RAN"
+
+# บอกทางเลือก DB revert แบบมือ (นโยบาย: BE/FE พังไม่ถอย DB อัตโนมัติ — กันข้อมูลหาย)
+db_manual_note() {
+  if [ -f "$MARKER" ]; then
+    echo "⚠️ รอบนี้มี migration (marker) — DB ไม่ถูกถอยอัตโนมัติ (กันข้อมูลผู้ใช้ระหว่าง deploy หาย)"
+    echo "   • migration แบบ additive → ปล่อยได้ code เก่ารันต่อได้"
+    echo "   • ถ้า destructive และต้องถอย DB จริง: bash $R0"
+  fi
+}
+
+# ตัวจัดการ revert ต่อ step (เรียง FE→BE เหมือน workflow · DB = migration fail เท่านั้น)
 revert_none()     { echo "ℹ️ ยังไม่ deploy อะไร — ไม่ต้อง revert"; }
 revert_migration(){ bash "$R0"; }
-revert_backend()  { bash "$R1"; bash "$R0"; }
-revert_frontend() { bash "$R2"; bash "$R1"; bash "$R0"; }
+revert_backend()  { bash "$R1"; db_manual_note; }
+revert_frontend() { bash "$R2"; bash "$R1"; db_manual_note; }
 
 run_step() {  # $1=label  $2=script(relative)  $3=revert-handler
   echo

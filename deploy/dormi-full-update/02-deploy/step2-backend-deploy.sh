@@ -2,7 +2,7 @@
 # 02-deploy/step2-backend-deploy.sh — deploy backend (ไม่ revert เอง — workflow เรียก revert)
 # ------------------------------------------------------------------
 # deploy → health check ผ่าน /version → พัง = exit 1
-#   job 'revert-backend' + 'revert-db' ใน workflow จะจัดการ revert เอง
+#   job 'revert-backend' (image :prev) จะ revert ให้ — DB ไม่ถอยอัตโนมัติ (revert-db.yml = มือ)
 # รันบน server (ผ่าน job 'backend'):  bash step2-backend-deploy.sh
 set -uo pipefail
 
@@ -58,10 +58,16 @@ if [ "$DEPLOY_OK" = true ] && health_poll "$API_HOST" "$TARGET_SHORT"; then
 fi
 
 # --- พัง → exit 1 (ไม่ revert เอง) ---
-# workflow: job 'backend' fail → job 'revert-backend' (image :prev) + 'revert-db' (ถ้ามี marker) รันต่อ
+# workflow: job 'backend' fail → job 'revert-backend' (image :prev) เท่านั้น
+# ★ DB ไม่ถูกถอยอัตโนมัติ (กันข้อมูลผู้ใช้ที่เขียนระหว่าง deploy หาย)
 echo "========================"
 echo " ❌ BACKEND พัง (build/health) — exit 1"
-echo "    → job 'revert-backend' + 'revert-db' ใน workflow จะ revert ให้"
+echo "    → job 'revert-backend' จะคืน image :prev ให้ (DB ไม่ถูกถอยอัตโนมัติ)"
+if [ -f /root/dormi-releases/snapshots/latest/MIGRATION_RAN ]; then
+  echo "    ⚠️ รอบนี้มี migration — schema ล้ำหน้า code เก่า:"
+  echo "       • additive (เพิ่ม column/table) → ปล่อยได้ code เก่ารันต่อได้"
+  echo "       • destructive → ถอย DB เอง: gh workflow run revert-db.yml"
+fi
 echo " STATUS: BACKEND FAILED"
 echo "========================"
 exit 1

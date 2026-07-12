@@ -26,6 +26,13 @@ fi
 # retag :prev → ชื่อ compose
 docker tag "$FE_ROLLBACK_TAG" "$COMPOSE_WEB_IMG"
 
+# คืน git clone ให้ตรงกับ image ที่ revert กลับ (สมมาตรกับ revert1 — กัน clone/image desync)
+if [ -n "${FE_COMMIT:-}" ] && [ -d "$FE_DIR/.git" ]; then
+  git -C "$FE_DIR" reset --hard "$FE_COMMIT" >/dev/null 2>&1 \
+    && echo "🔁 reset clone → ${FE_COMMIT:0:7} (ให้ตรงกับ image ที่คืน)" \
+    || echo "⚠️ reset clone ไม่สำเร็จ (ไม่บล็อก revert)"
+fi
+
 # /version สะท้อน commit เก่าที่คืนกลับ
 export APP_VERSION="${FE_COMMIT:0:7}"
 
