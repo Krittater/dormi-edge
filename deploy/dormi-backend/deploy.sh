@@ -77,8 +77,13 @@ if [ -n "$NEW_MIGRATIONS" ]; then
     if docker ps --format '{{.Names}}' | grep -q '^dormi_postgres$'; then
         RUN_MIGRATION=true
     else
-        echo "⚠️ พบ migration ใหม่ แต่ยังไม่มี dormi_postgres (น่าจะ deploy ครั้งแรก)"
-        echo "   → ข้าม explicit migrate, ให้ scheduler จัดการตอน boot"
+        # deploy ครั้งแรก (postgres ยังไม่ขึ้น) — เดิมพึ่ง scheduler migrate ตอน boot
+        # แต่ prod ปิด migrationsRun แล้ว (migration = หน้าที่ edge เท่านั้น app ไม่ migrate เอง)
+        # → bootstrap ครั้งแรกต้องรัน migration เองหลัง postgres healthy:
+        #   full-update: bash deploy/dormi-full-update/02-deploy/step1-migration-run.sh
+        echo "⚠️ พบ migration ใหม่ แต่ยังไม่มี dormi_postgres (deploy ครั้งแรก)"
+        echo "   → ข้ามรอบนี้; หลัง compose up เสร็จ (postgres healthy) รัน migration ผ่าน edge:"
+        echo "     bash /root/dormi-edge/deploy/dormi-full-update/02-deploy/step1-migration-run.sh"
     fi
 else
     echo "✅ ไม่มี migration ใหม่ — deploy ปกติ (ข้าม backup + migrate)"

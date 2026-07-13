@@ -47,7 +47,7 @@ internet ── :80/:443 ───► │  dormi-edge (nginx)  ── route by H
 | `dormi-edge` | `dormi-edge-edge` | dormi-edge | nginx reverse proxy + TLS |
 | `dormi-certbot` | `certbot/certbot` | dormi-edge | ต่ออายุ cert อัตโนมัติ |
 | `docker-dormi-api-1` | `docker-dormi-api` | dormi-backend-2 | REST API (`SCHEDULER_ENABLED=false`) |
-| `docker-dormi-scheduler-1` | `docker-dormi-scheduler` | dormi-backend-2 | migration + seed + cron (`SCHEDULER_ENABLED=true`) |
+| `docker-dormi-scheduler-1` | `docker-dormi-scheduler` | dormi-backend-2 | seed + cron (`SCHEDULER_ENABLED=true`) — prod **ไม่** migrate เองตอน boot, migration ทำผ่าน edge step1 เท่านั้น |
 | `dormi-fe-2-dormi-web-1` | `dormi-fe-2-dormi-web` | frontend | Next.js standalone (Node server) |
 | `dormi_postgres` | `postgres:16-alpine` | backend compose | ฐานข้อมูล (`user=dormi` `db=dormi_v2`) |
 
