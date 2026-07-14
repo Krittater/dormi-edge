@@ -5,3 +5,4 @@ v0.0.4 | 2026-07-14 01:22:55 | be=4361b25 fe=9dd5c2a | migration=InitialSchema17
 v1.0.1 | 2026-07-14 09:14:34 | be=725bd8e fe=d3dd5e3 | migration=AddSubscriptionPlanStub1789100000000 | manual
 v1.0.2 | 2026-07-14 14:06:50 | be=3137915 fe=d3dd5e3 | migration=AddSubscriptionPlanStub1789100000000 | auto
 v1.0.3 | 2026-07-14 14:40:01 | be=49282d7 fe=d3dd5e3 | migration=AddSubscriptionPlanStub1789100000000 | auto
+v1.0.4 | 2026-07-14 15:01:10 | be=db85fc0 fe=5399df5 | migration=AddRbacAndDropUserRole1789000000000 | auto
