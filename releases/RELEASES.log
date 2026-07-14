@@ -4,3 +4,4 @@ v0.0.3 | 2026-07-13 15:01:59 | be=a0c3b6a fe=c4a66f5 | migration=InitialSchema17
 v0.0.4 | 2026-07-14 01:22:55 | be=4361b25 fe=9dd5c2a | migration=InitialSchema1783266277045 | auto
 v1.0.1 | 2026-07-14 09:14:34 | be=725bd8e fe=d3dd5e3 | migration=AddSubscriptionPlanStub1789100000000 | manual
 v1.0.2 | 2026-07-14 14:06:50 | be=3137915 fe=d3dd5e3 | migration=AddSubscriptionPlanStub1789100000000 | auto
+v1.0.3 | 2026-07-14 14:40:01 | be=49282d7 fe=d3dd5e3 | migration=AddSubscriptionPlanStub1789100000000 | auto
