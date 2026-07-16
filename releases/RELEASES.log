@@ -7,3 +7,4 @@ v1.0.2 | 2026-07-14 14:06:50 | be=3137915 fe=d3dd5e3 | migration=AddSubscription
 v1.0.3 | 2026-07-14 14:40:01 | be=49282d7 fe=d3dd5e3 | migration=AddSubscriptionPlanStub1789100000000 | auto
 v1.0.4 | 2026-07-14 15:01:10 | be=db85fc0 fe=5399df5 | migration=AddRbacAndDropUserRole1789000000000 | auto
 v1.0.5 | 2026-07-14 15:10:29 | be=6c7b97f fe=5399df5 | migration=AddRbacAndDropUserRole1789000000000 | auto
+v1.0.6 | 2026-07-16 11:56:14 | be=6c7b97f fe=5399df5 | migration=AddRbacAndDropUserRole1789000000000 | auto
