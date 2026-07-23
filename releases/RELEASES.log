@@ -10,3 +10,4 @@ v1.0.5 | 2026-07-14 15:10:29 | be=6c7b97f fe=5399df5 | migration=AddRbacAndDropU
 v1.0.6 | 2026-07-16 11:56:14 | be=6c7b97f fe=5399df5 | migration=AddRbacAndDropUserRole1789000000000 | auto
 v1.0.7 | 2026-07-16 15:33:51 | be=f311d99 fe=2361bf5 | migration=InitialSchema1783266277045 | auto
 v1.0.8 | 2026-07-22 14:47:32 | be=e71ad66 fe=b7e9bff | migration=AddPlanPricingLimitsUserSubscriptions1789200000000 | auto
+v1.0.9 | 2026-07-23 14:53:51 | be=a889926 fe=b7e9bff | migration=AddPlanPricingLimitsUserSubscriptions1789200000000 | auto
