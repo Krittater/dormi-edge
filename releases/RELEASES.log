@@ -13,3 +13,4 @@ v1.0.8 | 2026-07-22 14:47:32 | be=e71ad66 fe=b7e9bff | migration=AddPlanPricingL
 v1.0.9 | 2026-07-23 14:53:51 | be=a889926 fe=b7e9bff | migration=AddPlanPricingLimitsUserSubscriptions1789200000000 | auto
 v1.0.10 | 2026-07-24 13:58:58 | be=e33fdb4 fe=ba28c2e | migration=AddTenantDepositSourceInvoice1789300000000 | auto
 v1.0.11 | 2026-07-25 11:59:07 | be=d8f0ac0 fe=b13daf4 | migration=AddTenantDepositSourceInvoice1789300000000 | auto
+v1.0.12 | 2026-07-25 15:35:33 | be=d8f0ac0 fe=3e35942 | migration=AddTenantDepositSourceInvoice1789300000000 | auto
