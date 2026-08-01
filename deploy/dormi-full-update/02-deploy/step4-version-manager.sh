@@ -11,6 +11,8 @@
 # ที่เก็บ (ตัวจริง = server file):
 #   /root/dormi-releases/VERSION       เลขปัจจุบัน บรรทัดเดียว
 #   /root/dormi-releases/RELEASES.log  ประวัติ append-only (ผูก version↔be↔fe↔migration)
+#     ★ be=/fe= อ่านจาก GET /version (ของที่รันจริง) — ไม่ใช่ git HEAD ของ clone
+#       ค่าที่ขึ้นต้นด้วย '~' = อ่าน /version ไม่ได้ จึง fallback ไป git HEAD (ไม่ยืนยัน)
 # แล้ว sync เฉพาะไฟล์พวกนี้เข้า git (edge repo) แบบ best-effort
 #
 # ใช้:  bash step4-version-manager.sh [X.Y.Z]
@@ -20,6 +22,11 @@ set -uo pipefail
 BE_DIR="/root/dormi-backend-2"
 FE_DIR="/root/dormi-fe-2"
 PG_CONTAINER="dormi_postgres"
+
+# ★ ความจริงของ "อะไรรันอยู่จริง" มาจาก GET /version ไม่ใช่ git HEAD ของ clone
+#   (clone อาจค้างเพราะ fetch ไม่ผ่าน → git HEAD หลอกได้ · เคยทำ log ผิดมาแล้ว v1.0.13/v1.0.14)
+API_HOST="dormi-api.dormi-linkandrent.com"
+WEB_HOST="dormi-linkandrent.com"
 
 REL_DIR="/root/dormi-releases"
 VERSION_FILE="$REL_DIR/VERSION"
@@ -66,9 +73,29 @@ EOF
 fi
 echo "🔖 $CURRENT → v$NEW ($MODE)"
 
-# ========= 3. เก็บข้อมูล release (commit ที่ deploy จริง + schema) =========
-BE_SHA="$(git -C "$BE_DIR" rev-parse --short HEAD 2>/dev/null || echo '?')"
-FE_SHA="$(git -C "$FE_DIR" rev-parse --short HEAD 2>/dev/null || echo '?')"
+# ========= 3. เก็บข้อมูล release (commit ที่ "รันอยู่จริง" + schema) =========
+# อ่าน commit ที่รันจริงจาก GET /version (backend ถูก ResponseInterceptor ห่อ → data.version)
+# ว่าง = อ่านไม่ได้
+running_version() {  # $1=host
+  curl -fsS --max-time 10 --resolve "$1:443:127.0.0.1" "https://$1/version" 2>/dev/null \
+    | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4 || true
+}
+
+# ★ บันทึกจาก /version เป็นหลัก — git HEAD ของ clone เชื่อไม่ได้
+#   (clone ค้างเพราะ fetch พัง → เคยบันทึก fe=3e35942 ซ้ำ 2 รอบทั้งที่ FE ไม่ได้ deploy)
+#   อ่าน /version ไม่ได้ → fallback git HEAD แต่ใส่ '~' นำหน้า = "ไม่ได้ยืนยันจากของที่รันจริง"
+resolve_sha() {  # $1=host  $2=repo-dir
+  local v
+  v="$(running_version "$1")"
+  if [ -n "$v" ] && [ "$v" != "unknown" ]; then printf '%s' "$v"; return 0; fi
+  printf '~%s' "$(git -C "$2" rev-parse --short HEAD 2>/dev/null || echo '?')"
+}
+
+BE_SHA="$(resolve_sha "$API_HOST" "$BE_DIR")"
+FE_SHA="$(resolve_sha "$WEB_HOST" "$FE_DIR")"
+case "$BE_SHA$FE_SHA" in
+  *'~'*) echo "⚠️ บาง service อ่าน /version ไม่ได้ — ค่าที่ขึ้นต้นด้วย ~ มาจาก git HEAD (ไม่ยืนยัน)" ;;
+esac
 MIGRATION="$(docker exec "$PG_CONTAINER" sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT name FROM migrations ORDER BY timestamp DESC LIMIT 1"' 2>/dev/null | tr -d '[:space:]' || true)"
 [ -z "$MIGRATION" ] && MIGRATION="?"
 TS="$(date '+%Y-%m-%d %H:%M:%S')"
