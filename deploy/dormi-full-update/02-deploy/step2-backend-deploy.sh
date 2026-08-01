@@ -33,9 +33,20 @@ echo "========================"
 [ -d "$BE_DIR/.git" ] || { echo "❌ ไม่พบ $BE_DIR"; exit 1; }
 
 # ensure clone ที่ target (step1 อาจ pull แล้ว; ถ้า step1 ข้ามก็ pull เอง)
-git -C "$BE_DIR" fetch -q origin "$BE_BRANCH" && git -C "$BE_DIR" reset --hard "origin/$BE_BRANCH"
+# ★ ต้องสำเร็จ "จริง" — รอบที่ไม่มี migration step1 จะ exit ก่อนถึง reset → การ pull ทั้งหมด
+#   ตกอยู่กับบรรทัดนี้ตัวเดียว. ถ้าปล่อยผ่าน: reset ถูกข้าม (&&) → deploy commit เก่าทับของเดิม
+#   → health check เทียบกับ TARGET_SHORT ตัวเดียวกัน = ผ่านหลอกๆ → รายงาน "สำเร็จ"
+#   หมายเหตุ: ห้ามพึ่ง `set -e` — bash ยกเว้น errexit ให้คำสั่งด้านซ้ายของ && ต้องดักเอง
+git -C "$BE_DIR" fetch origin "$BE_BRANCH" \
+  || { echo "❌ fetch origin/$BE_BRANCH ล้มเหลว — ยกเลิก (กัน deploy โค้ดเก่าแล้วรายงานว่าสำเร็จ)"; exit 1; }
+git -C "$BE_DIR" reset --hard "origin/$BE_BRANCH" \
+  || { echo "❌ reset --hard origin/$BE_BRANCH ล้มเหลว — ยกเลิก"; exit 1; }
+
 TARGET_SHORT="$(git -C "$BE_DIR" rev-parse --short HEAD)"
-echo "🎯 target commit: $TARGET_SHORT"
+EXPECTED_SHORT="$(git -C "$BE_DIR" rev-parse --short "origin/$BE_BRANCH")"
+[ "$TARGET_SHORT" = "$EXPECTED_SHORT" ] \
+  || { echo "❌ HEAD ($TARGET_SHORT) ไม่ตรง origin/$BE_BRANCH ($EXPECTED_SHORT) — ยกเลิก"; exit 1; }
+echo "🎯 target commit: $TARGET_SHORT (ยืนยันตรงกับ origin/$BE_BRANCH)"
 
 # --- deploy ---
 export APP_VERSION="$TARGET_SHORT"   # → /version คืน commit นี้

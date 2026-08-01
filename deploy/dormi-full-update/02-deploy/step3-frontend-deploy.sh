@@ -30,9 +30,25 @@ echo "========================"
 
 [ -d "$FE_DIR/.git" ] || { echo "❌ ไม่พบ $FE_DIR"; exit 1; }
 
-git -C "$FE_DIR" fetch -q origin "$FE_BRANCH" && git -C "$FE_DIR" reset --hard "origin/$FE_BRANCH"
+# ★ fetch/reset ต้องสำเร็จ "จริง" — ห้ามปล่อยผ่าน
+#   ถ้า fetch พังแล้วไปต่อ: reset ถูกข้าม (&&) → TARGET_SHORT = commit เก่าที่ค้างใน clone
+#   → build/deploy ของเก่าทับของเดิม → health check เทียบกับ TARGET_SHORT ตัวเดียวกัน = ผ่านหลอกๆ
+#   → รายงาน "สำเร็จ" ทั้งที่ไม่ได้ deploy อะไรใหม่เลย (เคสจริง: FE ค้าง 6 วัน 25 ก.ค.–1 ส.ค. 2026)
+#   หมายเหตุ: ห้ามพึ่ง `set -e` — bash ยกเว้น errexit ให้คำสั่งด้านซ้ายของ && ต้องดักเอง
+git -C "$FE_DIR" fetch origin "$FE_BRANCH" \
+  || { echo "❌ fetch origin/$FE_BRANCH ล้มเหลว — ยกเลิก (กัน deploy โค้ดเก่าแล้วรายงานว่าสำเร็จ)"; exit 1; }
+git -C "$FE_DIR" reset --hard "origin/$FE_BRANCH" \
+  || { echo "❌ reset --hard origin/$FE_BRANCH ล้มเหลว — ยกเลิก"; exit 1; }
+
 TARGET_SHORT="$(git -C "$FE_DIR" rev-parse --short HEAD)"
-echo "🎯 target commit: $TARGET_SHORT"
+EXPECTED_SHORT="$(git -C "$FE_DIR" rev-parse --short "origin/$FE_BRANCH")"
+[ "$TARGET_SHORT" = "$EXPECTED_SHORT" ] \
+  || { echo "❌ HEAD ($TARGET_SHORT) ไม่ตรง origin/$FE_BRANCH ($EXPECTED_SHORT) — ยกเลิก"; exit 1; }
+echo "🎯 target commit: $TARGET_SHORT (ยืนยันตรงกับ origin/$FE_BRANCH)"
+
+# .env.production ถูก bake เข้า build (NEXT_PUBLIC_API_URL) — ไม่มีไฟล์ = เว็บยิง API ผิดที่แบบเงียบ
+[ -f "$FE_DIR/.env.production" ] \
+  || { echo "❌ ไม่พบ $FE_DIR/.env.production — build จะได้ NEXT_PUBLIC_API_URL ว่าง ยกเลิก"; exit 1; }
 
 # --- deploy ---
 export APP_VERSION="$TARGET_SHORT"

@@ -34,10 +34,16 @@ check_lock() {   # $1=dir  $2=branch  $3=label
   fi
 
   # fetch เป้าหมายล่าสุด → เช็ค lock ของ "code ที่กำลังจะ deploy" (ไม่ใช่ของเก่าใน clone)
+  # ★ fetch พัง = fail ทันที ห้าม fallback ไป HEAD
+  #   เดิม fallback ไป HEAD + กลบ error ด้วย 2>/dev/null → ตรวจ lock ของ "โค้ดเก่า" แล้วสรุปว่า
+  #   "✅ sync ทั้ง 2 ฝั่ง" ทั้งที่ตรวจผิดตัว และซ่อนสาเหตุจริง (เช่น auth ของ remote พัง)
+  #   ไม่รู้ว่ากำลังจะ deploy อะไร = ไม่ควรไปต่อ (ปล่อย stderr ให้เห็นสาเหตุใน log)
   ref="origin/$branch"
-  if ! git -C "$dir" fetch -q origin "$branch" 2>/dev/null; then
-    echo "⚠️  [$label] fetch origin/$branch ไม่สำเร็จ — เช็คจาก HEAD ปัจจุบันแทน"
-    ref="HEAD"
+  if ! git -C "$dir" fetch origin "$branch"; then
+    echo "❌ [$label] fetch origin/$branch ไม่สำเร็จ — หยุด (ดูข้อความ git ด้านบนเพื่อหาสาเหตุ)"
+    echo "     • auth: remote ต้องเป็น SSH (git@github.com:…) — HTTPS ใช้ไม่ได้กับ private repo บน server นี้"
+    echo "     • ตรวจ: git -C $dir remote -v"
+    return 1
   fi
 
   # ดึงแค่ 2 ไฟล์ออกมาใส่ temp (ไม่แตะ working tree ของ clone)
