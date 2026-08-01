@@ -43,7 +43,7 @@ check_lock() {   # $1=dir  $2=branch  $3=label
     echo "❌ [$label] fetch origin/$branch ไม่สำเร็จ — หยุด (ดูข้อความ git ด้านบนเพื่อหาสาเหตุ)"
     echo "     • auth: remote ต้องเป็น SSH (git@github.com:…) — HTTPS ใช้ไม่ได้กับ private repo บน server นี้"
     echo "     • ตรวจ: git -C $dir remote -v"
-    return 1
+    return 2   # 2 = fetch พัง (คนละเรื่องกับ lockfile ไม่ตรง) → ผู้เรียกแยกข้อความได้
   fi
 
   # ดึงแค่ 2 ไฟล์ออกมาใส่ temp (ไม่แตะ working tree ของ clone)
@@ -67,11 +67,21 @@ check_lock() {   # $1=dir  $2=branch  $3=label
 # ========= เช็คทั้ง 2 ฝั่ง (เก็บผลก่อน แล้วค่อยสรุป) =========
 BE_RESULT="OK"; FE_RESULT="OK"
 
+# แยก "fetch พัง" (rc=2) ออกจาก "lockfile ไม่ตรง" (rc=1) — คนละสาเหตุ คนละวิธีแก้
+# ถ้ารวมเป็นอย่างเดียวจะไล่ผิดทาง (เคยฟ้องให้ไปแก้ lockfile ทั้งที่ปัญหาคือ auth ของ remote)
+classify() {  # $1=rc → echo ผลลัพธ์
+  case "$1" in
+    0) echo "OK" ;;
+    2) echo "FETCH_FAIL" ;;
+    *) echo "MISMATCH" ;;
+  esac
+}
+
 echo "🔎 backend  ($BE_BRANCH)..."
-check_lock "$BE_DIR" "$BE_BRANCH" "backend"  || BE_RESULT="MISMATCH"
+check_lock "$BE_DIR" "$BE_BRANCH" "backend";  BE_RESULT="$(classify $?)"
 
 echo "🔎 frontend ($FE_BRANCH)..."
-check_lock "$FE_DIR" "$FE_BRANCH" "frontend" || FE_RESULT="MISMATCH"
+check_lock "$FE_DIR" "$FE_BRANCH" "frontend"; FE_RESULT="$(classify $?)"
 
 # ========= สรุป =========
 echo "------------------------"
@@ -79,11 +89,20 @@ echo " backend  : $BE_RESULT"
 echo " frontend : $FE_RESULT"
 echo "------------------------"
 
+if [ "$BE_RESULT" = "FETCH_FAIL" ] || [ "$FE_RESULT" = "FETCH_FAIL" ]; then
+  echo "❌ ดึงโค้ดจาก GitHub ไม่ได้ — ยังไม่รู้ว่ากำลังจะ deploy อะไร จึงหยุด"
+  echo "   (ไม่ใช่ปัญหา lockfile — อย่าเพิ่งไปรัน npm run lockfile)"
+  if [ "$BE_RESULT" = "FETCH_FAIL" ]; then echo "     • backend  : git -C $BE_DIR remote -v   → ต้องเป็น git@github.com:…"; fi
+  if [ "$FE_RESULT" = "FETCH_FAIL" ]; then echo "     • frontend : git -C $FE_DIR remote -v   → ต้องเป็น git@github.com:…"; fi
+  echo "   แก้: git -C <dir> remote set-url origin git@github.com:<owner>/<repo>.git"
+  exit 1
+fi
+
 if [ "$BE_RESULT" = "MISMATCH" ] || [ "$FE_RESULT" = "MISMATCH" ]; then
   echo "❌ LOCKFILE MISMATCH — deploy จะพังตอน build (npm ci)"
   echo "   วิธีแก้: ไปที่ฝั่งที่ MISMATCH บนเครื่อง dev แล้ว:"
-  [ "$BE_RESULT" = "MISMATCH" ] && echo "     • backend  → npm run lockfile → git add package-lock.json → commit → push"
-  [ "$FE_RESULT" = "MISMATCH" ] && echo "     • frontend → npm run lockfile → git add package-lock.json → commit → push"
+  if [ "$BE_RESULT" = "MISMATCH" ]; then echo "     • backend  → npm run lockfile → git add package-lock.json → commit → push"; fi
+  if [ "$FE_RESULT" = "MISMATCH" ]; then echo "     • frontend → npm run lockfile → git add package-lock.json → commit → push"; fi
   echo "   แล้วค่อยเริ่ม full-update ใหม่"
   exit 1
 fi
