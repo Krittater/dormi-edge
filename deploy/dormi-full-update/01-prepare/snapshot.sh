@@ -17,8 +17,8 @@
 set -euo pipefail
 
 # ========= config =========
-BE_DIR="/root/dormi-backend-2"
-FE_DIR="/root/dormi-fe-2"
+BE_DIR="/root/dormi-backend-2"; BE_BRANCH="master"
+FE_DIR="/root/dormi-fe-2";      FE_BRANCH="main"
 PG_CONTAINER="dormi_postgres"
 SNAP_ROOT="/root/dormi-releases/snapshots"
 KEEP=10
@@ -100,6 +100,16 @@ fi
 if [ -n "$FE_RUN_VER" ] && [ "$FE_RUN_VER" != "unknown" ] && [ "$FE_RUN_VER" != "$FE_SHORT" ]; then
   echo "⚠️  FE: git HEAD ($FE_SHORT) ≠ /version ($FE_RUN_VER) — clone อาจ pull แต่ยังไม่ deploy"
 fi
+
+# ========= 1b. เป้าหมายของรอบนี้ (origin ref ที่ check0 เพิ่ง fetch มา) =========
+# โชว์ "จะ deploy จาก X → Y" ให้เห็นตั้งแต่ต้น — ถ้า X = Y แปลว่าไม่มีอะไรใหม่
+# (เคสจริง: clone ค้างเพราะ fetch ไม่ผ่าน ทำให้ทุกด่านเห็นตรงกันหมดแล้วผ่านทั้งที่ไม่ได้ deploy อะไร)
+BE_TARGET="$(git -C "$BE_DIR" rev-parse --short "origin/$BE_BRANCH" 2>/dev/null || echo '?')"
+FE_TARGET="$(git -C "$FE_DIR" rev-parse --short "origin/$FE_BRANCH" 2>/dev/null || echo '?')"
+echo "🎯 เป้าหมายรอบนี้: BE $BE_SHORT → $BE_TARGET   FE $FE_SHORT → $FE_TARGET"
+# ใช้ if ไม่ใช่ `[ ] && echo` — สคริปต์นี้ set -e และบรรทัดที่คืน non-zero ทำให้อ่านผลพลาดง่าย
+if [ "$BE_SHORT" = "$BE_TARGET" ]; then echo "   ℹ️ BE ไม่มี commit ใหม่ (deploy ซ้ำของเดิม)"; fi
+if [ "$FE_SHORT" = "$FE_TARGET" ]; then echo "   ℹ️ FE ไม่มี commit ใหม่ (deploy ซ้ำของเดิม)"; fi
 
 # ========= 2. ★ tag image ที่รันอยู่ (แก่นของความรัดกุม) =========
 echo "🏷️  tag image สำหรับ rollback..."

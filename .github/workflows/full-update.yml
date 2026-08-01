@@ -153,14 +153,16 @@ jobs:
       - uses: appleboy/ssh-action@v1.2.0
         env:
           VERSION_INPUT: ${{ inputs.version }}
+          DEPLOY_SCOPE: ${{ inputs.scope }}
         with:
           host: ${{ secrets.PROD_SERVER }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_KEY }}
-          envs: VERSION_INPUT
+          envs: VERSION_INPUT,DEPLOY_SCOPE
           script_stop: true
           # VERSION_INPUT ว่าง = auto +0.0.1 ; มีค่า = override
-          script: cd /root/dormi-edge/deploy/dormi-full-update && bash 02-deploy/step4-version-manager.sh "$VERSION_INPUT"
+          # DEPLOY_SCOPE → บันทึกลง RELEASES.log ว่ารอบนี้ deploy ฝั่งไหน (all/backend/frontend)
+          script: cd /root/dormi-edge/deploy/dormi-full-update && bash 02-deploy/step4-version-manager.sh "$VERSION_INPUT" "$DEPLOY_SCOPE"
 
   # ═══════ REVERT (รันเฉพาะเมื่อพัง / skip เมื่อผ่าน — เรียง FE→BE · DB = migration fail เท่านั้น) ═══════
   revert-frontend:

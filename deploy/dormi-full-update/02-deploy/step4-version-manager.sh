@@ -40,6 +40,9 @@ GIT_NAME="dormi-deploy-bot"
 GIT_EMAIL="deploy@dormi-linkandrent.com"
 
 OVERRIDE="${1:-}"          # มี arg = ระบุ version เอง; ว่าง = auto
+# scope ของรอบนี้ (all/backend/frontend) — workflow ส่งมาเป็น arg 2 หรือ env DEPLOY_SCOPE
+# บันทึกลง log ด้วย: deploy ฝั่งเดียวแล้วบันทึกทั้ง be= และ fe= ทำให้อ่านเหมือน deploy ครบ stack
+SCOPE="${2:-${DEPLOY_SCOPE:-all}}"
 
 echo "========================"
 echo " Step 4 — Version manager (บันทึก release)"
@@ -99,7 +102,7 @@ esac
 MIGRATION="$(docker exec "$PG_CONTAINER" sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT name FROM migrations ORDER BY timestamp DESC LIMIT 1"' 2>/dev/null | tr -d '[:space:]' || true)"
 [ -z "$MIGRATION" ] && MIGRATION="?"
 TS="$(date '+%Y-%m-%d %H:%M:%S')"
-LINE="v$NEW | $TS | be=$BE_SHA fe=$FE_SHA | migration=$MIGRATION | $MODE"
+LINE="v$NEW | $TS | be=$BE_SHA fe=$FE_SHA | migration=$MIGRATION | scope=$SCOPE | $MODE"
 
 # ========= 4. เขียน server file (ตัวจริง) — atomic สำหรับ VERSION =========
 printf '%s\n' "$NEW" > "$VERSION_FILE.tmp" && mv "$VERSION_FILE.tmp" "$VERSION_FILE"

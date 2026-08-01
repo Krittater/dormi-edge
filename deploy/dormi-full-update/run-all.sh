@@ -77,7 +77,7 @@ echo
 echo "########################################"
 echo "# ▶ 6. Record release version"
 echo "########################################"
-bash "$HERE/02-deploy/step4-version-manager.sh" "$VERSION_OVERRIDE" \
+bash "$HERE/02-deploy/step4-version-manager.sh" "$VERSION_OVERRIDE" "all" \
   || echo "⚠️ version manager มีปัญหา (deploy สำเร็จแล้ว — ไม่กระทบ)"
 
 echo
