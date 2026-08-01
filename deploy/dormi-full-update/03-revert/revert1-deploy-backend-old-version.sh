@@ -13,6 +13,20 @@ COMPOSE="docker compose --env-file .env.production -f docker-compose.yml -f dock
 # ชื่อ image ที่ compose ใช้ (project=docker → <project>-<service>)
 COMPOSE_API_IMG="docker-dormi-api:latest"
 COMPOSE_SCHED_IMG="docker-dormi-scheduler:latest"
+API_HOST="dormi-api.dormi-linkandrent.com"
+
+# ยืนยันว่า revert แล้ว "ใช้งานได้จริง" ไม่ใช่แค่ compose up คืน exit 0
+# (snapshot ตรวจ health ก่อน deploy — revert ก็ต้องตรวจหลังคืนค่าเหมือนกัน)
+health_poll() {  # $1=host $2=expected_short
+  local i body ver
+  for i in $(seq 1 20); do
+    body="$(curl -fsS --max-time 5 --resolve "$1:443:127.0.0.1" "https://$1/version" 2>/dev/null || true)"
+    ver="$(printf '%s' "$body" | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+    [ "$ver" = "$2" ] && return 0
+    sleep 3
+  done
+  return 1
+}
 
 echo "========================"
 echo " Revert 1 — backend → image เก่า (:prev)"
@@ -55,12 +69,21 @@ export APP_VERSION="${BE_COMMIT:0:7}"
 echo "↩️ recreate ($SERVICES) จาก image :prev — commit ${BE_COMMIT:0:7}"
 cd "$BE_DIR/$COMPOSE_DIR"
 # --no-build = ใช้ image ที่ retag ไว้ ไม่ build ใหม่ (postgres ไม่ถูกแตะ)
-if $COMPOSE up -d --no-build --force-recreate $SERVICES; then
-  echo "✅ revert backend สำเร็จ → :prev (ไม่ได้ build ใหม่)"
-  echo " STATUS: SUCCESS"
-  exit 0
-else
+if ! $COMPOSE up -d --no-build --force-recreate $SERVICES; then
   echo "❌ recreate จาก image :prev ล้มเหลว"
   echo " STATUS: FAILED"
   exit 1
 fi
+
+# ★ ยืนยันด้วย /version ว่าคืนกลับสำเร็จจริง (ไม่ใช่แค่ container ขึ้น)
+if health_poll "$API_HOST" "${BE_COMMIT:0:7}"; then
+  echo "✅ revert backend สำเร็จ → :prev (${BE_COMMIT:0:7}) + health OK"
+  echo " STATUS: SUCCESS"
+  exit 0
+fi
+
+echo "❌ recreate ผ่าน แต่ /version ไม่กลับมาเป็น ${BE_COMMIT:0:7} ภายใน 60s"
+echo "   ตรวจ: docker logs --tail=50 docker-dormi-api-1"
+echo "   และ : curl -s https://$API_HOST/version"
+echo " STATUS: FAILED (revert ไม่ยืนยัน)"
+exit 1

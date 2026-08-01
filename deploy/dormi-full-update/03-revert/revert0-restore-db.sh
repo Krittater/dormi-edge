@@ -56,6 +56,45 @@ DB_NAME="$(docker exec "$PG_CONTAINER" printenv POSTGRES_DB)"
 FAILED_DB="${DB_NAME}_failed_$(date +%Y%m%d_%H%M%S)"
 echo "🎯 db=$DB_NAME  →  เก็บของเก่าเป็น: $FAILED_DB"
 
+# ========= 0. หยุดแอปก่อนแตะ DB =========
+# datallowconn=false ใช้ได้กับ DB "เก่า" เท่านั้น — พอ CREATE DATABASE ตัวใหม่ มันรับ connection
+# ได้ทันที → api/scheduler ที่ยังรันอยู่จะ reconnect เข้ามา "ระหว่าง restore" แล้วอ่าน/เขียน
+# ข้อมูลที่ยังไม่ครบ (ตารางบางส่วน / FK ยังไม่มา) → หยุดก่อน แล้วค่อยสตาร์ตคืนตอนจบ
+APP_CONTAINERS="docker-dormi-api-1 docker-dormi-scheduler-1"
+STOPPED=""
+
+# ★ ตั้ง trap "ก่อน" เริ่มหยุด — ถ้าพัง/ถูก Ctrl-C กลางลูป ตัวที่หยุดไปแล้วต้องได้กลับมา
+#   (EXIT ไม่ครอบ INT/TERM ทุกกรณี จึงดักเพิ่มให้ครบ)
+start_apps() {
+  for c in $STOPPED; do
+    if docker start "$c" >/dev/null 2>&1; then
+      echo "▶️  สตาร์ต $c คืนแล้ว"
+    else
+      echo "⚠️ สตาร์ต $c ไม่สำเร็จ — ต้องสตาร์ตเอง: docker start $c"
+    fi
+  done
+}
+trap start_apps EXIT INT TERM
+
+for c in $APP_CONTAINERS; do
+  if docker ps --format '{{.Names}}' | grep -qx "$c"; then
+    if docker stop "$c" >/dev/null 2>&1; then
+      STOPPED="$STOPPED $c"
+      echo "⏸️  หยุด $c ชั่วคราว (กันเขียนทับระหว่าง restore)"
+    else
+      echo "❌ หยุด $c ไม่ได้ — ยกเลิก (ถ้าปล่อยไว้ แอปจะเขียนทับ DB ที่ restore ยังไม่ครบ)"
+      echo " STATUS: FAILED"
+      exit 1
+    fi
+  fi
+done
+
+# ไม่เจอ container สักตัว = ชื่ออาจเปลี่ยน (compose project เปลี่ยน) → เตือน ไม่ใช่เงียบ
+if [ -z "$STOPPED" ]; then
+  echo "⚠️ ไม่พบ container แอปที่รันอยู่ ($APP_CONTAINERS)"
+  echo "   ถ้าชื่อเปลี่ยนไปแล้ว แอปจะยังต่อ DB ระหว่าง restore ได้ — ตรวจ: docker ps"
+fi
+
 # ========= 1. block connection + terminate + rename เก่า + สร้างใหม่ =========
 # ต่อผ่าน db 'postgres' (rename ตัวเองไม่ได้); ON_ERROR_STOP กันทำครึ่งๆ
 if ! docker exec -i "$PG_CONTAINER" psql -U "$DB_USER" -d postgres -v ON_ERROR_STOP=1 <<SQL
