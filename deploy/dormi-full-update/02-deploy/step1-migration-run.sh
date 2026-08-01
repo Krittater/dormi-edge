@@ -13,6 +13,10 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 BACKUP_SH="$HERE/../01-prepare/backup.sh"
 
+# migration แตะ schema — ห้ามให้ deploy สายอื่นเข้ามาแทรกกลางคัน
+. "$HERE/../../lib/deploy-lock.sh"
+deploy_lock "full-update / step1 migration"
+
 # ========= config =========
 BE_DIR="/root/dormi-backend-2"
 BE_BRANCH="master"

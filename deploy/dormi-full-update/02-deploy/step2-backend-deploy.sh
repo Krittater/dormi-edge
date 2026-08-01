@@ -8,6 +8,10 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
+# กัน hotfix ของ backend repo (คนละ GitHub concurrency scope) รันชนกับ step นี้
+. "$HERE/../../lib/deploy-lock.sh"
+deploy_lock "full-update / step2 backend deploy"
+
 BE_DIR="/root/dormi-backend-2"
 BE_BRANCH="master"
 COMPOSE_DIR="docker"

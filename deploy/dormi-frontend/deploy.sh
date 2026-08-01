@@ -9,6 +9,10 @@
 
 set -e
 
+# กันชนกับ full-update ที่อาจรันพร้อมกัน (GitHub concurrency คุมข้าม repo ไม่ได้)
+. "$(cd "$(dirname "$0")" && pwd)/../lib/deploy-lock.sh"
+deploy_lock "hotfix / dormi-frontend deploy.sh"
+
 APP_NAME="dormi-fe-2"
 APP_DIR="/root/$APP_NAME"
 GIT_BRANCH="main"

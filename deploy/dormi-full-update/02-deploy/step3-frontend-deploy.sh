@@ -9,6 +9,10 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
+# กัน deploy สายอื่น (hotfix repo แอป — คนละ GitHub concurrency scope) รันชนกับ step นี้
+. "$HERE/../../lib/deploy-lock.sh"
+deploy_lock "full-update / step3 frontend deploy"
+
 FE_DIR="/root/dormi-fe-2"
 FE_BRANCH="main"
 WEB_HOST="dormi-linkandrent.com"
