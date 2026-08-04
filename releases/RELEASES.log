@@ -18,3 +18,4 @@ v1.0.13 | 2026-07-29 14:22:48 | be=f2d2b10 fe=3e35942 | migration=AddTenantDepos
 v1.0.14 | 2026-07-31 16:00:28 | be=399c3cb fe=3e35942 | migration=AddTenantDepositSourceInvoice1789300000000 | auto
 v1.0.15 | 2026-08-01 12:52:59 | be=399c3cb fe=7f7e7a2 | migration=AddTenantDepositSourceInvoice1789300000000 | scope=all | auto
 v1.0.16 | 2026-08-03 09:47:28 | be=74790cd fe=ae84bb9 | migration=AddUniqueActiveTenancy1789700000000 | scope=all | auto
+v1.0.17 | 2026-08-04 02:33:04 | be=74790cd fe=238ff0a | migration=AddUniqueActiveTenancy1789700000000 | scope=all | auto
