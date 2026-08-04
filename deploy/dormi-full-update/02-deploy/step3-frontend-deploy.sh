@@ -17,15 +17,18 @@ FE_DIR="/root/dormi-fe-2"
 FE_BRANCH="main"
 WEB_HOST="dormi-linkandrent.com"
 # frontend อยู่ใต้ basePath /app (หน้าแรกของโดเมนถูกยกให้เว็บ market)
-# สคริปต์นี้เช็คเฉพาะ frontend → ใส่ path ตรงๆ ได้ ไม่กระทบ backend
-WEB_VERSION_PATH="/app/version"
+# ★ ลองทั้งสองทาง: ระหว่าง deploy รอบที่ย้ายไป /app ครั้งแรก ตัวเก่ายังตอบที่ /version
+#   และถ้า nginx ยังไม่ถูก reload แอปใหม่จะเข้าถึงได้ทาง /version อยู่ชั่วขณะ
+WEB_VERSION_PATHS="/app/version /version"
 
 health_poll() {  # $1=host $2=expected_short
-  local i body ver
+  local i p body ver
   for i in $(seq 1 20); do
-    body="$(curl -fsS --max-time 5 --resolve "$1:443:127.0.0.1" "https://$1${WEB_VERSION_PATH}" 2>/dev/null || true)"
-    ver="$(printf '%s' "$body" | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
-    [ "$ver" = "$2" ] && return 0
+    for p in $WEB_VERSION_PATHS; do
+      body="$(curl -fsS --max-time 5 --resolve "$1:443:127.0.0.1" "https://$1$p" 2>/dev/null || true)"
+      ver="$(printf '%s' "$body" | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+      [ "$ver" = "$2" ] && return 0
+    done
     sleep 3
   done
   return 1

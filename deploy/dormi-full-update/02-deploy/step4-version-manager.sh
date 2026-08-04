@@ -28,7 +28,8 @@ PG_CONTAINER="dormi_postgres"
 API_HOST="dormi-api.dormi-linkandrent.com"
 WEB_HOST="dormi-linkandrent.com"
 # frontend อยู่ใต้ basePath /app — backend ยังอยู่ที่ /version เหมือนเดิม
-WEB_VERSION_PATH="/app/version"
+# ★ ลองทั้งสองทาง เผื่อของที่รันอยู่เป็น image ก่อนมี basePath (deploy รอบแรก / หลัง revert)
+WEB_VERSION_PATHS="/app/version /version"
 
 REL_DIR="/root/dormi-releases"
 VERSION_FILE="$REL_DIR/VERSION"
@@ -81,15 +82,20 @@ echo "🔖 $CURRENT → v$NEW ($MODE)"
 # ========= 3. เก็บข้อมูล release (commit ที่ "รันอยู่จริง" + schema) =========
 # อ่าน commit ที่รันจริงจาก GET /version (backend ถูก ResponseInterceptor ห่อ → data.version)
 # ว่าง = อ่านไม่ได้
-running_version() {  # $1=host  $2=path (ไม่ใส่ = /version)
-  curl -fsS --max-time 10 --resolve "$1:443:127.0.0.1" "https://$1${2:-/version}" 2>/dev/null \
-    | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4 || true
+running_version() {  # $1=host  $2=รายการ path คั่นช่องว่าง (ไม่ใส่ = /version)
+  local p v
+  for p in ${2:-/version}; do
+    v="$(curl -fsS --max-time 10 --resolve "$1:443:127.0.0.1" "https://$1$p" 2>/dev/null \
+      | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+    [ -n "$v" ] && { printf '%s' "$v"; return 0; }
+  done
+  return 1
 }
 
 # ★ บันทึกจาก /version เป็นหลัก — git HEAD ของ clone เชื่อไม่ได้
 #   (clone ค้างเพราะ fetch พัง → เคยบันทึก fe=3e35942 ซ้ำ 2 รอบทั้งที่ FE ไม่ได้ deploy)
 #   อ่าน /version ไม่ได้ → fallback git HEAD แต่ใส่ '~' นำหน้า = "ไม่ได้ยืนยันจากของที่รันจริง"
-resolve_sha() {  # $1=host  $2=repo-dir  $3=path (ไม่ใส่ = /version)
+resolve_sha() {  # $1=host  $2=repo-dir  $3=รายการ path (ไม่ใส่ = /version)
   local v
   v="$(running_version "$1" "${3:-}")"
   if [ -n "$v" ] && [ "$v" != "unknown" ]; then printf '%s' "$v"; return 0; fi
@@ -97,7 +103,7 @@ resolve_sha() {  # $1=host  $2=repo-dir  $3=path (ไม่ใส่ = /version)
 }
 
 BE_SHA="$(resolve_sha "$API_HOST" "$BE_DIR")"
-FE_SHA="$(resolve_sha "$WEB_HOST" "$FE_DIR" "$WEB_VERSION_PATH")"
+FE_SHA="$(resolve_sha "$WEB_HOST" "$FE_DIR" "$WEB_VERSION_PATHS")"
 case "$BE_SHA$FE_SHA" in
   *'~'*) echo "⚠️ บาง service อ่าน /version ไม่ได้ — ค่าที่ขึ้นต้นด้วย ~ มาจาก git HEAD (ไม่ยืนยัน)" ;;
 esac

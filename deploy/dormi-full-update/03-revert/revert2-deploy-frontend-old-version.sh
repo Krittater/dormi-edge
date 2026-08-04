@@ -11,16 +11,21 @@ FE_DIR="/root/dormi-fe-2"
 COMPOSE_WEB_IMG="dormi-fe-2-dormi-web:latest"
 WEB_HOST="dormi-linkandrent.com"
 # frontend อยู่ใต้ basePath /app (หน้าแรกของโดเมนถูกยกให้เว็บ market)
-WEB_VERSION_PATH="/app/version"
+# ★ ต้องลองทั้งสองทาง: revert = สลับกลับไป image เก่า ซึ่งอาจเป็นตัวที่ยังไม่มี
+#   basePath → กลับไปตอบที่ /version ถ้าเช็คแค่ /app/version จะรายงานว่า revert ล้ม
+#   ทั้งที่คืนค่าสำเร็จแล้ว
+WEB_VERSION_PATHS="/app/version /version"
 
 # ยืนยันว่า revert แล้ว "ใช้งานได้จริง" ไม่ใช่แค่ compose up คืน exit 0
 # (snapshot ตรวจ health ก่อน deploy — revert ก็ต้องตรวจหลังคืนค่าเหมือนกัน)
 health_poll() {  # $1=host $2=expected_short
-  local i body ver
+  local i p body ver
   for i in $(seq 1 20); do
-    body="$(curl -fsS --max-time 5 --resolve "$1:443:127.0.0.1" "https://$1${WEB_VERSION_PATH}" 2>/dev/null || true)"
-    ver="$(printf '%s' "$body" | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
-    [ "$ver" = "$2" ] && return 0
+    for p in $WEB_VERSION_PATHS; do
+      body="$(curl -fsS --max-time 5 --resolve "$1:443:127.0.0.1" "https://$1$p" 2>/dev/null || true)"
+      ver="$(printf '%s' "$body" | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+      [ "$ver" = "$2" ] && return 0
+    done
     sleep 3
   done
   return 1
@@ -69,6 +74,6 @@ fi
 
 echo "❌ recreate ผ่าน แต่ /version ไม่กลับมาเป็น ${FE_COMMIT:0:7} ภายใน 60s"
 echo "   ตรวจ: docker compose -f $FE_DIR/docker-compose.yml logs --tail=50 dormi-web"
-echo "   และ : curl -s https://$WEB_HOST$WEB_VERSION_PATH"
+echo "   และ : curl -s https://$WEB_HOST/app/version"
 echo " STATUS: FAILED (revert ไม่ยืนยัน)"
 exit 1
