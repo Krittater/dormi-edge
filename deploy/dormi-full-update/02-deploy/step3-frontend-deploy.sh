@@ -16,11 +16,14 @@ deploy_lock "full-update / step3 frontend deploy"
 FE_DIR="/root/dormi-fe-2"
 FE_BRANCH="main"
 WEB_HOST="dormi-linkandrent.com"
+# frontend อยู่ใต้ basePath /app (หน้าแรกของโดเมนถูกยกให้เว็บ market)
+# สคริปต์นี้เช็คเฉพาะ frontend → ใส่ path ตรงๆ ได้ ไม่กระทบ backend
+WEB_VERSION_PATH="/app/version"
 
 health_poll() {  # $1=host $2=expected_short
   local i body ver
   for i in $(seq 1 20); do
-    body="$(curl -fsS --max-time 5 --resolve "$1:443:127.0.0.1" "https://$1/version" 2>/dev/null || true)"
+    body="$(curl -fsS --max-time 5 --resolve "$1:443:127.0.0.1" "https://$1${WEB_VERSION_PATH}" 2>/dev/null || true)"
     ver="$(printf '%s' "$body" | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
     [ "$ver" = "$2" ] && return 0
     sleep 3

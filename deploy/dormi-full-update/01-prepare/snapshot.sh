@@ -34,6 +34,9 @@ FE_TAG="dormi-web:prev"
 # /version สำหรับ health check + cross-check commit ที่รันจริง
 API_HOST="dormi-api.dormi-linkandrent.com"
 WEB_HOST="dormi-linkandrent.com"
+# frontend อยู่ใต้ basePath /app (หน้าแรกของโดเมนถูกยกให้เว็บ market)
+# → path ของ /version ก็ขยับตามไปด้วย ส่วน backend ยังอยู่ที่ /version เหมือนเดิม
+WEB_VERSION_PATH="/app/version"
 
 TS="$(date +%Y%m%d-%H%M%S)"
 SNAP_DIR="$SNAP_ROOT/$TS"
@@ -48,9 +51,10 @@ running() { docker ps --format '{{.Names}}' | grep -q "^$1$"; }
 
 # curl /version ผ่าน edge (force ไป localhost กัน hairpin/DNS) → เก็บ body ที่ $RESP
 RESP=""
-check_version() {  # $1=host $2=label
-  RESP="$(curl -fsS --max-time 10 --resolve "$1:443:127.0.0.1" "https://$1/version" 2>/dev/null || true)"
-  [ -n "$RESP" ] || { echo "❌ $2 /version ไม่ตอบ 200 — สภาพปัจจุบันไม่ควรใช้เป็นจุดกลับ"; return 1; }
+check_version() {  # $1=host $2=label $3=path (ไม่ใส่ = /version)
+  local path="${3:-/version}"
+  RESP="$(curl -fsS --max-time 10 --resolve "$1:443:127.0.0.1" "https://$1${path}" 2>/dev/null || true)"
+  [ -n "$RESP" ] || { echo "❌ $2 ${path} ไม่ตอบ 200 — สภาพปัจจุบันไม่ควรใช้เป็นจุดกลับ"; return 1; }
 }
 
 # ดึง version จาก JSON (backend ถูก ResponseInterceptor ห่อ → data.version; frontend มีตรงๆ)
@@ -74,7 +78,7 @@ done
 # 0b. health check จริงผ่าน /version (พิสูจน์ว่า app ตอบ 200 ไม่ใช่แค่ container up)
 check_version "$API_HOST" "backend"  || exit 1
 API_BODY="$RESP"
-check_version "$WEB_HOST" "frontend" || exit 1
+check_version "$WEB_HOST" "frontend" "$WEB_VERSION_PATH" || exit 1
 WEB_BODY="$RESP"
 API_RUN_VER="$(extract_version "$API_BODY")"
 FE_RUN_VER="$(extract_version "$WEB_BODY")"
