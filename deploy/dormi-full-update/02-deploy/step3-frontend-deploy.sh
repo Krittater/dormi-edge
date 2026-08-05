@@ -15,8 +15,8 @@ deploy_lock "full-update / step3 frontend deploy"
 
 FE_DIR="/root/dormi-fe-2"
 FE_BRANCH="main"
-WEB_HOST="dormi-linkandrent.com"
-# frontend อยู่ใต้ basePath /app (หน้าแรกของโดเมนถูกยกให้เว็บ market)
+WEB_HOST="app.dormi-linkandrent.com"
+# frontend ย้ายมาอยู่ที่ app.dormi-linkandrent.com แล้ว (โดเมนแม่เป็นของเว็บการตลาด)
 # ★ ลองทั้งสองทาง: ระหว่าง deploy รอบที่ย้ายไป /app ครั้งแรก ตัวเก่ายังตอบที่ /version
 #   และถ้า nginx ยังไม่ถูก reload แอปใหม่จะเข้าถึงได้ทาง /version อยู่ชั่วขณะ
 WEB_VERSION_PATHS="/app/version /version"

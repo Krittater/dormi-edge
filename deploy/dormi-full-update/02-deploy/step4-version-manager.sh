@@ -26,8 +26,8 @@ PG_CONTAINER="dormi_postgres"
 # ★ ความจริงของ "อะไรรันอยู่จริง" มาจาก GET /version ไม่ใช่ git HEAD ของ clone
 #   (clone อาจค้างเพราะ fetch ไม่ผ่าน → git HEAD หลอกได้ · เคยทำ log ผิดมาแล้ว v1.0.13/v1.0.14)
 API_HOST="dormi-api.dormi-linkandrent.com"
-WEB_HOST="dormi-linkandrent.com"
-# frontend อยู่ใต้ basePath /app — backend ยังอยู่ที่ /version เหมือนเดิม
+WEB_HOST="app.dormi-linkandrent.com"
+# frontend ย้ายมาอยู่ที่ app. แล้ว — backend ยังอยู่ที่ /version เหมือนเดิม
 # ★ ลองทั้งสองทาง เผื่อของที่รันอยู่เป็น image ก่อนมี basePath (deploy รอบแรก / หลัง revert)
 WEB_VERSION_PATHS="/app/version /version"
 

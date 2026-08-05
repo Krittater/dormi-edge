@@ -9,8 +9,8 @@ SNAP_ENV="/root/dormi-releases/snapshots/latest/snapshot.env"
 FE_DIR="/root/dormi-fe-2"
 # ชื่อ image ที่ compose ใช้ (project=dormi-fe-2)
 COMPOSE_WEB_IMG="dormi-fe-2-dormi-web:latest"
-WEB_HOST="dormi-linkandrent.com"
-# frontend อยู่ใต้ basePath /app (หน้าแรกของโดเมนถูกยกให้เว็บ market)
+WEB_HOST="app.dormi-linkandrent.com"
+# frontend ย้ายมาอยู่ที่ app.dormi-linkandrent.com แล้ว (โดเมนแม่เป็นของเว็บการตลาด)
 # ★ ต้องลองทั้งสองทาง: revert = สลับกลับไป image เก่า ซึ่งอาจเป็นตัวที่ยังไม่มี
 #   basePath → กลับไปตอบที่ /version ถ้าเช็คแค่ /app/version จะรายงานว่า revert ล้ม
 #   ทั้งที่คืนค่าสำเร็จแล้ว
@@ -74,6 +74,6 @@ fi
 
 echo "❌ recreate ผ่าน แต่ /version ไม่กลับมาเป็น ${FE_COMMIT:0:7} ภายใน 60s"
 echo "   ตรวจ: docker compose -f $FE_DIR/docker-compose.yml logs --tail=50 dormi-web"
-echo "   และ : curl -s https://$WEB_HOST/app/version"
+echo "   และ : curl -s https://$WEB_HOST/version"
 echo " STATUS: FAILED (revert ไม่ยืนยัน)"
 exit 1

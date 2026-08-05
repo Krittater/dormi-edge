@@ -33,8 +33,8 @@ FE_TAG="dormi-web:prev"
 
 # /version สำหรับ health check + cross-check commit ที่รันจริง
 API_HOST="dormi-api.dormi-linkandrent.com"
-WEB_HOST="dormi-linkandrent.com"
-# frontend อยู่ใต้ basePath /app (หน้าแรกของโดเมนถูกยกให้เว็บ market)
+WEB_HOST="app.dormi-linkandrent.com"
+# frontend ย้ายมาอยู่ที่ app.dormi-linkandrent.com แล้ว (โดเมนแม่เป็นของเว็บการตลาด)
 # ★ ต้องลองทั้งสองทาง เพราะสคริปต์นี้ตรวจ "ของที่รันอยู่ตอนนี้" ซึ่งอาจยังเป็นตัวเก่า:
 #   - deploy รอบที่ย้ายไป /app ครั้งแรก → ของเดิมยังตอบที่ /version
 #   - revert กลับไป image ก่อนมี basePath → กลับไปตอบที่ /version อีก

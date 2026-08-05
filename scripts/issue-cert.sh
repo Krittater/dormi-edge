@@ -47,10 +47,15 @@ fi
 # หมายเหตุ: โดเมนต้องชี้ DNS มาที่ IP ของ edge + port 80 เข้าถึงได้ (ACME http-01)
 # --entrypoint certbot: จำเป็น! เพราะ certbot service ตั้ง entrypoint เป็น renew loop
 #   ถ้าไม่ override คำสั่ง certonly จะโดน loop กลืน → ค้าง ไม่ออก cert
+# --non-interactive + --expand: จำเป็นเมื่อ "รายชื่อโดเมนในใบเปลี่ยน"
+#   (เพิ่ม/ลดโดเมน เช่นตอนย้าย dormi-linkandrent.com ออกแล้วใส่ app. เข้ามา)
+#   ถ้าไม่ใส่ certbot จะหยุดถามยืนยัน (E)xpand/(C)ancel แล้วค้างรอ input
+#   → รันผ่าน ssh/CI จะแขวนจนหมดเวลาโดยไม่บอกสาเหตุ
 docker compose run --rm --entrypoint certbot certbot certonly \
   --webroot -w /var/www/certbot \
   --cert-name "${CERT_NAME}" \
   ${ARGS} \
+  --non-interactive --expand \
   --email "${EMAIL}" --agree-tos --no-eff-email
 
 echo ""
