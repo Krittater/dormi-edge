@@ -22,3 +22,4 @@ v1.0.17 | 2026-08-04 02:33:04 | be=74790cd fe=238ff0a | migration=AddUniqueActiv
 v1.0.18 | 2026-08-05 04:44:42 | be=74790cd fe=d2bffce | migration=AddUniqueActiveTenancy1789700000000 | scope=all | auto
 v1.0.19 | 2026-08-07 14:51:15 | be=~74790cd fe=0766ef9 | migration=AddUniqueActiveTenancy1789700000000 | scope=frontend | auto
 v1.0.20 | 2026-08-07 15:14:31 | be=ab09fc2 fe=e8781cf | migration=DropTenantMonthlyRentOverride1790200000000 | scope=all | auto
+v1.0.21 | 2026-08-13 12:27:20 | be=13bbb1e fe=b151851 | migration=AddMeterReadingBilledInvoice1790800000000 | scope=all | auto
