@@ -25,3 +25,4 @@ v1.0.20 | 2026-08-07 15:14:31 | be=ab09fc2 fe=e8781cf | migration=DropTenantMont
 v1.0.21 | 2026-08-13 12:27:20 | be=13bbb1e fe=b151851 | migration=AddMeterReadingBilledInvoice1790800000000 | scope=all | auto
 v1.0.22 | 2026-08-13 13:14:12 | be=dc88e6c fe=26b3747 | migration=AddMeterReadingBilledInvoice1790800000000 | scope=all | auto
 v1.0.23 | 2026-08-16 15:31:01 | be=43911c0 fe=e93cbda | migration=AddMeterReadingBilledInvoice1790800000000 | scope=all | auto
+v1.0.24 | 2026-09-07 15:42:50 | be=43911c0 fe=e93cbda | migration=AddMeterReadingBilledInvoice1790800000000 | scope=all | auto
