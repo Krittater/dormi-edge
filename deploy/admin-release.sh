@@ -44,7 +44,11 @@ test "$(df -Pk /var/lib/docker | awk 'NR==2 {print $4}')" -gt 8388608 || { echo 
 command -v python3 >/dev/null
 for pair in "$BE:$BE_SHA" "$AD:$AD_SHA"; do
   repo=${pair%%:*}; sha=${pair#*:}
-  git -C "$repo" fetch origin master
+  if [[ "$repo" == "$AD" ]]; then
+    git -C "$repo" fetch git@github.com:Krittater/dormi-admin.git master:refs/remotes/origin/master
+  else
+    git -C "$repo" fetch origin master
+  fi
   test "$(git -C "$repo" rev-parse origin/master)" = "$sha" || { echo "Remote target changed; stop for review"; exit 1; }
   git -C "$repo" merge-base --is-ancestor HEAD "$sha"
 done
