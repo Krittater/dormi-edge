@@ -27,3 +27,4 @@ v1.0.22 | 2026-08-13 13:14:12 | be=dc88e6c fe=26b3747 | migration=AddMeterReadin
 v1.0.23 | 2026-08-16 15:31:01 | be=43911c0 fe=e93cbda | migration=AddMeterReadingBilledInvoice1790800000000 | scope=all | auto
 v1.0.24 | 2026-09-07 15:42:50 | be=43911c0 fe=e93cbda | migration=AddMeterReadingBilledInvoice1790800000000 | scope=all | auto
 v1.0.25 | 2026-09-13 08:17:19 | be=0fbab8e fe=11354f9 | migration=AddPaymentSlipFileIndex1791400000000 | scope=all | auto
+v1.0.26 | 2026-09-21 15:13:09 | be=7a40122 fe=26b470e | migration=AddSessionLogFailureIndex1791560000000 | scope=all | auto
