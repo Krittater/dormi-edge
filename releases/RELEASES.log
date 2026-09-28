@@ -29,3 +29,4 @@ v1.0.24 | 2026-09-07 15:42:50 | be=43911c0 fe=e93cbda | migration=AddMeterReadin
 v1.0.25 | 2026-09-13 08:17:19 | be=0fbab8e fe=11354f9 | migration=AddPaymentSlipFileIndex1791400000000 | scope=all | auto
 v1.0.26 | 2026-09-21 15:13:09 | be=7a40122 fe=26b470e | migration=AddSessionLogFailureIndex1791560000000 | scope=all | auto
 v1.0.27 | 2026-09-27 12:51:20 | be=bab82ca fe=2bc0fd2 | migration=AddTenantNames1791570000000 | scope=all | auto
+v1.0.28 | 2026-09-28 08:57:09 | be=0a96a36 fe=6a7c239 | migration=AddSlipOkVerification1791580000000 | scope=all | auto
