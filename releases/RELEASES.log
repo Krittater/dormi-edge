@@ -32,3 +32,4 @@ v1.0.27 | 2026-09-27 12:51:20 | be=bab82ca fe=2bc0fd2 | migration=AddTenantNames
 v1.0.28 | 2026-09-28 08:57:09 | be=0a96a36 fe=6a7c239 | migration=AddSlipOkVerification1791580000000 | scope=all | auto
 v1.0.29 | 2026-09-28 09:51:26 | be=0a96a36 fe=6701d61 | migration=AddSlipOkVerification1791580000000 | scope=frontend | auto
 v1.0.30 | 2026-09-28 12:38:51 | be=0a96a36 fe=16cb612 | migration=AddSlipOkVerification1791580000000 | scope=frontend | auto
+v1.0.31 | 2026-09-28 15:02:51 | be=7ad8b16 fe=423661a | migration=AddSlipOkVerification1791580000000 | scope=all | auto
