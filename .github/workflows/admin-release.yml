@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Inspect server or deploy reviewed backend and Admin APIs
+        description: Inspect server, deploy the reviewed Admin API (autopilot off), or turn the marketing autopilot on after testing
         type: choice
-        options: [inspect, deploy]
+        options: [inspect, deploy, autopilot-on]
         default: inspect
 permissions:
   contents: read
