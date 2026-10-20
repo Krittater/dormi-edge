@@ -37,3 +37,4 @@ v1.0.32 | 2026-10-02 14:46:20 | be=f9b02e5 fe=16eb705 | migration=UniqueCustomer
 v1.0.33 | 2026-10-05 15:30:34 | be=f9b02e5 fe=94657ee | migration=UniqueCustomerOperationReference1791800000000 | scope=frontend | auto
 v1.0.34 | 2026-10-13 15:06:41 | be=5125ad3 fe=a34ee37 | migration=UniqueCustomerOperationReference1791800000000 | scope=all | auto
 v1.0.35 | 2026-10-18 08:31:52 | be=59f796b fe=8845d16 | migration=UniqueCustomerOperationReference1791800000000 | scope=all | auto
+v1.0.36 | 2026-10-20 06:03:20 | be=9a9adf4 fe=a9ef7c9 | migration=UniqueCustomerOperationReference1791800000000 | scope=all | auto
