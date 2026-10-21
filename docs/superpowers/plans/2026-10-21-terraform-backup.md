@@ -100,9 +100,9 @@ Values (from spec facts table): `name = "dormi-linkandrent"`, `region = "sgp1"`,
 `digitalocean_spaces_bucket.db_backups`: `name = "dormi-db-backups"`, `region = "sgp1"`, `acl = "private"`, `lifecycle_rule { enabled = true; expiration { days = 14 } }`, `lifecycle { prevent_destroy = true }`. Thai comment: Spaces is a flat ~$5/month (250 GB); DigitalOcean deletes files older than 14 days itself.
 
 - [ ] **Step 1: Write `spaces.tf`; `terraform fmt -check`; `terraform validate`.**
-- [ ] **Step 2 (USER): create a full-access Spaces key** (DO → API → Spaces Keys) for Terraform; set `SPACES_ACCESS_KEY_ID` / `SPACES_SECRET_ACCESS_KEY` in the same PowerShell with the same `Read-Host -AsSecureString` pattern as the token.
+- [ ] **Step 2 (USER): create a full-access Spaces key** (DO → Spaces Object Storage → Access Keys → Create Access Key) for Terraform; set `SPACES_ACCESS_KEY_ID` / `SPACES_SECRET_ACCESS_KEY` in the same PowerShell with the same `Read-Host -AsSecureString` pattern as the token.
 - [ ] **Step 3 (USER): `terraform plan`.** Expected: `1 to add` (the bucket) and nothing else. Name taken globally → rename to `dormi-db-backups-<4 random chars>` and record a ruling.
-- [ ] **Step 4 (USER): `terraform apply`.** Then the user creates a **limited** Spaces key (read/write on this bucket only) for the server.
+- [ ] **Step 4 (USER): `terraform apply`.** Then the user creates a **Limited access** key (Read/Write/Delete on this bucket only — the bucket must exist first) for the server.
 - [ ] **Step 5: Commit** `spaces.tf`.
 
 ---

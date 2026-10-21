@@ -30,7 +30,7 @@ cd C:\Users\Anuchit\Desktop\Private\dormi\dormi-edge\terraform
 # DO token (สร้างที่ DO → API → Tokens) — พิมพ์แล้วขึ้น **** ไม่โชว์ค่าจริง
 $s = Read-Host "DO token" -AsSecureString; $env:DIGITALOCEAN_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s)); Remove-Variable s
 
-# Spaces key (DO → API → Spaces Keys · Full Access) — ใช้กับ spaces.tf
+# Spaces key (DO → Spaces Object Storage → แท็บ Access Keys → Create Access Key · Full access) — ใช้กับ spaces.tf
 $a = Read-Host "Spaces Access Key" -AsSecureString; $env:SPACES_ACCESS_KEY_ID = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($a)); $b = Read-Host "Spaces Secret Key" -AsSecureString; $env:SPACES_SECRET_ACCESS_KEY = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($b)); Remove-Variable a, b
 ```
 
