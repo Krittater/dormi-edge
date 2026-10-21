@@ -29,11 +29,12 @@ done
 mkdir -p "$DIR"
 stamp="$(date -u +%Y%m%d-%H%M)"
 
-# ── 0) ฐานข้อมูลที่ต้อง dump: ทุกฐานใน instance ยกเว้น template และ postgres ──
+# ── 0) ฐานข้อมูลที่ต้อง dump: ทุกฐานที่เปิดรับการเชื่อมต่อ ยกเว้น template และ postgres ──
+# ★ datallowconn: ฐานที่ถูกปิดไว้ (เช่น dormi_v2_failed_… ที่เหลือจาก migration พัง) pg_dump เข้าไม่ได้
 # ★ ไม่ใช่แค่ POSTGRES_DB — instance เดียวกันมี dormi_admin (ระบบแอดมิน) ด้วย ฐานที่เพิ่มทีหลังติดมาเอง
 if [ -n "${DORMI_DB_LIST:-}" ]; then
   dbs="$DORMI_DB_LIST"
-elif ! dbs="$(docker exec dormi_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> '"'"'postgres'"'"' ORDER BY 1"')"; then
+elif ! dbs="$(docker exec dormi_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT datname FROM pg_database WHERE NOT datistemplate AND datallowconn AND datname <> '"'"'postgres'"'"' ORDER BY 1"')"; then
   fail "list databases" 3
 fi
 [ -n "$dbs" ] || fail "list databases (empty)" 3
