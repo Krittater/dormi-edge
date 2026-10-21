@@ -26,10 +26,12 @@ sandbox() {
 run_case() {
   local d="$1"
   shift
+  # dump ปลอมได้ชื่อ DB เป็น $1 · verify ปลอมยอมรับเฉพาะไฟล์ที่มี END (= อ่านได้ครบทั้งไฟล์)
   env DORMI_BACKUP_ENV="$d/env" \
     DORMI_BACKUP_DIR="$d/backups" \
-    DORMI_DUMP_CMD="printf 'PGDMP-fake-dump'" \
-    DORMI_VERIFY_CMD="true" \
+    DORMI_DB_LIST="dormi_v2" \
+    DORMI_DUMP_CMD='printf "PGDMP-%s-END" "$1"' \
+    DORMI_VERIFY_CMD="grep -q END" \
     DORMI_UPLOAD_CMD="$d/fake-upload" \
     "$@" bash "$SCRIPT" > "$d/log" 2>&1
   echo $? > "$d/exit"
@@ -79,6 +81,27 @@ touch -d '1 day ago' "$d/backups/dormi-recent.dump"
 run_case "$d"
 check cleanup "4-day-old dump deleted" "$([ ! -e "$d/backups/dormi-old.dump" ]; echo $?)"
 check cleanup "1-day-old dump kept" "$([ -e "$d/backups/dormi-recent.dump" ]; echo $?)"
+
+# ── all-dbs: ทุกฐานข้อมูลถูก dump + อัปแยกไฟล์ (เดิม dump แค่ POSTGRES_DB — dormi_admin หลุด) ──
+d="$(sandbox)"; fake_uploader "$d" 0; run_case "$d" DORMI_DB_LIST="dormi_v2 dormi_admin"
+check all-dbs "exit 0" "$([ "$(cat "$d/exit")" = 0 ]; echo $?)"
+check all-dbs "uploaded dormi_v2" "$(grep -q '/dormi-dormi_v2-.*\.dump$' "$d/uploaded" 2>/dev/null; echo $?)"
+check all-dbs "uploaded dormi_admin" "$(grep -q '/dormi-dormi_admin-.*\.dump$' "$d/uploaded" 2>/dev/null; echo $?)"
+check all-dbs "2 OK lines" "$([ "$(grep -c ' OK dormi-' "$d/log")" = 2 ]; echo $?)"
+
+# ── one-db-fails: ฐานไหนพัง = ทั้งรอบล้ม ไม่ประกาศสำเร็จ ──
+d="$(sandbox)"; fake_uploader "$d" 0
+run_case "$d" DORMI_DB_LIST="dormi_v2 dormi_admin" DORMI_DUMP_CMD='[ "$1" = dormi_admin ] && exit 1; printf "PGDMP-%s-END" "$1"'
+check one-db-fails "exit 3" "$([ "$(cat "$d/exit")" = 3 ]; echo $?)"
+check one-db-fails "log FAILED: pg_dump dormi_admin" "$(grep -q 'FAILED: pg_dump dormi_admin' "$d/log"; echo $?)"
+check one-db-fails "no last-success" "$([ ! -e "$d/backups/last-success" ]; echo $?)"
+check one-db-fails "partial file removed" "$(! ls "$d/backups"/dormi-dormi_admin-*.dump >/dev/null 2>&1; echo $?)"
+
+# ── truncated-dump: pg_dump จบ 0 แต่ไฟล์ขาด → ต้องจับได้ ไม่อัป ──
+d="$(sandbox)"; fake_uploader "$d" 0; run_case "$d" DORMI_DUMP_CMD='printf "PGDMP-%s-cut" "$1"'
+check truncated-dump "exit 3" "$([ "$(cat "$d/exit")" = 3 ]; echo $?)"
+check truncated-dump "log FAILED: dump unreadable" "$(grep -q 'FAILED: dump unreadable' "$d/log"; echo $?)"
+check truncated-dump "no upload" "$([ ! -e "$d/uploaded" ]; echo $?)"
 
 echo "test-db-dump: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
