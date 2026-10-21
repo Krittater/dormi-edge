@@ -28,31 +28,28 @@ done
 
 mkdir -p "$DIR"
 stamp="$(date -u +%Y%m%d-%H%M)"
-object="dormi-$stamp.dump"
-file="$DIR/$object"
 
-# ── 1) dump ──
+# ── 0) ฐานข้อมูลที่ต้อง dump: ทุกฐานที่เปิดรับการเชื่อมต่อ ยกเว้น template และ postgres ──
+# ★ datallowconn: ฐานที่ถูกปิดไว้ (เช่น dormi_v2_failed_… ที่เหลือจาก migration พัง) pg_dump เข้าไม่ได้
+# ★ ไม่ใช่แค่ POSTGRES_DB — instance เดียวกันมี dormi_admin (ระบบแอดมิน) ด้วย ฐานที่เพิ่มทีหลังติดมาเอง
+if [ -n "${DORMI_DB_LIST:-}" ]; then
+  dbs="$DORMI_DB_LIST"
+elif ! dbs="$(docker exec dormi_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT datname FROM pg_database WHERE NOT datistemplate AND datallowconn AND datname <> '"'"'postgres'"'"' ORDER BY 1"')"; then
+  fail "list databases" 3
+fi
+[ -n "$dbs" ] || fail "list databases (empty)" 3
+
 if [ -n "${DORMI_DUMP_CMD:-}" ]; then
-  dump() { bash -c "$DORMI_DUMP_CMD"; }
+  dump() { bash -c "$DORMI_DUMP_CMD" _ "$1"; }
 else
-  dump() { docker exec dormi_postgres sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB"'; }
+  dump() { docker exec dormi_postgres sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$1"' _ "$1"; }
 fi
-if ! dump > "$file"; then
-  rm -f "$file"
-  fail "pg_dump" 3
-fi
-
-# ── 2) ตรวจว่าไฟล์อ่านได้จริง ก่อนอัป (กันไฟล์ครึ่งเดียว) ──
+# ★ --file=/dev/null อ่าน data ทุกบล็อกจริง — --list อ่านแค่สารบัญที่อยู่หัวไฟล์ ไฟล์ที่ขาดท้ายก็ผ่าน
 if [ -n "${DORMI_VERIFY_CMD:-}" ]; then
   verify() { bash -c "$DORMI_VERIFY_CMD"; }
 else
-  verify() { docker exec -i dormi_postgres pg_restore --list > /dev/null; }
+  verify() { docker exec -i dormi_postgres pg_restore --file=/dev/null; }
 fi
-if ! verify < "$file"; then
-  fail "dump unreadable ($file kept for inspection)" 3
-fi
-
-# ── 3) อัปโหลด ──
 # ★ key/secret ส่งให้ curl ทาง stdin (--config -) ไม่ใช่ argv — ไม่โผล่ใน `ps` และไม่ลง log
 upload() {
   if [ -n "${DORMI_UPLOAD_CMD:-}" ]; then
@@ -65,11 +62,23 @@ upload() {
       -T "$1" \
       "https://${SPACES_BUCKET}.${SPACES_REGION}.digitaloceanspaces.com/daily/$2" > /dev/null
 }
-if ! upload "$file" "$object"; then
-  fail "upload $object" 4
-fi
 
-# ── 4) สำเร็จ ──
-log "OK $object $(stat -c %s "$file")"
+# ── ทีละฐาน: dump → ตรวจว่าอ่านได้ครบ → อัป · ฐานไหนพัง = ทั้งรอบล้ม (ไม่เขียน last-success) ──
+for db in $dbs; do
+  object="dormi-$db-$stamp.dump"
+  file="$DIR/$object"
+  if ! dump "$db" > "$file"; then
+    rm -f "$file"
+    fail "pg_dump $db" 3
+  fi
+  if ! verify < "$file"; then
+    fail "dump unreadable $db ($file kept for inspection)" 3
+  fi
+  if ! upload "$file" "$object"; then
+    fail "upload $object" 4
+  fi
+  log "OK $object $(stat -c %s "$file")"
+done
+
 date -u +%Y-%m-%dT%H:%M:%SZ > "$DIR/last-success"
 find "$DIR" -maxdepth 1 -name 'dormi-*.dump' -mmin "+$KEEP_LOCAL_MINUTES" -delete

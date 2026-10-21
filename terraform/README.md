@@ -49,11 +49,24 @@ $a = Read-Host "Spaces Access Key" -AsSecureString; $env:SPACES_ACCESS_KEY_ID = 
 | เห็น | แปลว่า | ทำต่อ |
 |---|---|---|
 | `+ create` | สร้างใหม่ | ✅ ถ้าตั้งใจ |
-| `~ update in-place` | แก้ของเดิม เครื่องเดิมยังอยู่ | ✅ |
+| `~ update in-place` | แก้ของเดิม เครื่องเดิมยังอยู่ | ✅ **ถ้าเป็นค่าที่ตั้งใจแก้** — อ่านทุกบรรทัดที่มี `~` |
 | `- destroy` | ลบ | ⚠️ ดูให้ชัดว่าลบอะไร |
 | **`-/+ must be replaced`** | **ลบเครื่องแล้วสร้างใหม่** | ❌ **ห้าม apply** |
 
 กันพลาดไว้แล้ว: droplet และ bucket มี `prevent_destroy` — สั่งลบจะโดนปฏิเสธ (`Instance cannot be destroyed`)
+
+> ⚠️ **apply เฉพาะสิ่งที่ตั้งใจเปลี่ยนเท่านั้น** — ถ้า plan มี `~ size` ของ droplet ที่คุณไม่ได้แก้ (เช่น เคย resize ผ่าน dashboard แล้วไฟล์ยังเป็นขนาดเก่า) apply = **เครื่องถูกปิดและถูกลดขนาดกลับ** · แก้ไฟล์ให้ตรงของจริงก่อน
+>
+> ⚠️ **`prevent_destroy` คุ้มครองเฉพาะตอน block ยังอยู่ในไฟล์** — ลบ block ของ droplet หรือ bucket ทิ้งแล้ว apply = **ลบเครื่อง/ลบ backup จริง** · อยากเลิกให้ Terraform ดูแลโดยไม่ลบของจริง ใช้ block ด้านล่างแทนการลบ (หรือ `terraform state rm`)
+
+```hcl
+removed {
+  from = digitalocean_droplet.dormi
+  lifecycle {
+    destroy = false # เลิกดูแลเฉย ๆ เครื่องจริงยังอยู่
+  }
+}
+```
 
 ## งานที่ทำบ่อย
 
@@ -66,7 +79,9 @@ $a = Read-Host "Spaces Access Key" -AsSecureString; $env:SPACES_ACCESS_KEY_ID = 
 
 ### ลบ snapshot หลัง resize ผ่าน
 
-ลบ block ใน `snapshot.tf` (หรือลบทั้งไฟล์) → `terraform plan` ต้องขึ้น `1 to destroy` ที่เป็น **snapshot** → `apply`
+ลบ block ใน `snapshot.tf` (หรือลบทั้งไฟล์) → `terraform plan` ต้องขึ้น `1 to destroy` ที่เป็น **snapshot เท่านั้น ไม่มีอย่างอื่น** → `apply`
+
+★ วิธี "ลบ block แล้ว apply" ใช้ได้กับ **snapshot เท่านั้น** — ห้ามใช้กับ `droplet.tf` / `spaces.tf` (ดูคำเตือนด้านบน)
 
 ### ดู backup ว่ามีจริง
 
