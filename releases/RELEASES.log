@@ -42,3 +42,4 @@ v1.0.37 | 2026-10-20 17:09:17 | be=f739bb3 fe=bc763ee | migration=AddSecurityEve
 v1.0.38 | 2026-10-21 03:54:47 | be=~f739bb3 fe=bc763ee | migration=AddSecurityEvents1792100000000 | scope=frontend | auto
 v1.0.39 | 2026-10-21 04:31:45 | be=~f739bb3 fe=257c2d2 | migration=AddSecurityEvents1792100000000 | scope=frontend | auto
 v1.0.40 | 2026-10-21 06:19:31 | be=~f739bb3 fe=0ad1d21 | migration=AddSecurityEvents1792100000000 | scope=frontend | auto
+v1.0.41 | 2026-10-22 01:45:57 | be=252c47e fe=4eb17e6 | migration=AddEmailVerifications1792200000000 | scope=all | auto
