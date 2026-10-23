@@ -287,7 +287,7 @@ docker exec -i dormi_postgres pg_restore -U dormi -d dormi_v2 --clean --if-exist
 - ❌ **ห้ามแก้บน server** — แก้ที่ local → push → ให้ deploy pull ลงมา (server เป็น read-only ในทางปฏิบัติ)
 - ❌ ห้าม commit secret: `.env`, `*.env.production`, `*.pem`, `*.key`, `data/`, `*.dump` (มี .gitignore กันบางส่วน)
 - ✅ migration = **สร้างไฟล์ใหม่เสมอ ห้ามแก้ของเก่า** (diff ใช้ `--diff-filter=A` จับเฉพาะไฟล์เพิ่มใหม่)
-- ✅ cert เป็น SAN ใบเดียว all-or-nothing — เพิ่มโดเมนต้องออก cert ใหม่ (ดู `../README.md`)
+- ✅ cert เป็น SAN all-or-nothing **ต่อชื่อ cert** — `edge-dormi` (app. + API) กับ `edge-landing` (apex + www) แยกกัน เพื่อให้โดเมนที่ DNS ยังไม่ชี้มาไม่ทำให้ใบอื่นพัง · ออกใบ: `sh scripts/issue-cert.sh [ชื่อ cert]` (ดู `../README.md`)
 - ✅ backup ก่อน migrate เสมอ (full-update ทำให้อัตโนมัติ) — ไม่ migrate โดยไม่มี backup
 
 ---
@@ -301,6 +301,24 @@ docker exec -i dormi_postgres pg_restore -U dormi -d dormi_v2 --clean --if-exist
 | logic แต่ละ script | หัวไฟล์ `.sh` แต่ละตัว (คอมเมนต์ละเอียด) |
 | version manager logic | `dormi/step4-version-manager-logic.html` |
 | backend detail (compose, env, migration) | README ของ repo `dormi-backend-2` |
+
+---
+
+## 9. Landing (เว็บการตลาด `dormi-linkandrent.com`) — `dormi-landing/`
+
+ย้ายจาก Vercel มาอยู่บน VPS นี้: edge รับ apex + www (cert แยก `edge-landing`) → proxy ไป container `dormi-landing:3000`
+
+- **ไม่ build บน server** — image build ใน GitHub Actions (`release.yml` ของ repo landing, สั่งมือ) แล้วส่ง `docker save | gzip` มาที่ `/root/dormi-releases/landing-images/` → server แค่ `docker load`
+- **ไฟล์:** `dormi-landing/docker-compose.yml` (project `dormi-landing`, `mem_limit 384m`) · `dormi-landing/release.sh`
+- **คำสั่งบน server** (ล็อกด้วย `lib/deploy-lock.sh` เหมือน deploy อื่น):
+  ```bash
+  bash /root/dormi-edge/deploy/dormi-landing/release.sh inspect                    # อ่านอย่างเดียว: RAM/ดิสก์/cert/nginx -t
+  bash /root/dormi-edge/deploy/dormi-landing/release.sh ensure-dummy-cert          # ทำก่อน merge edge ที่มี 40-landing.conf
+  bash /root/dormi-edge/deploy/dormi-landing/release.sh deploy <tar.gz> <sha>      # โดย workflow
+  ```
+- **deploy flow:** ดิสก์ว่าง ≥ 3 GiB → `docker load` → tag ตัวเดิมเป็น `dormi-landing:prev` → up → healthy → ตรวจผ่าน edge (`/` = 200, `/admin` → `/admin/login`) → พังตรงไหน rollback ไป `:prev` อัตโนมัติ (ครั้งแรกที่ยังไม่มีของเดิม = `down`)
+- **cert:** `edge-landing` ออกได้หลัง DNS apex + www ชี้มาที่ edge เท่านั้น: `sh scripts/issue-cert.sh edge-landing` · ก่อนนั้น nginx ใช้ dummy cert
+- **runbook เต็ม** (setup ครั้งเดียว, ลำดับสลับ DNS, rollback, ปิด Vercel): `dormi/docs/pipeline/landing-to-vps/06-release.md`
 
 ---
 

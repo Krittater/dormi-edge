@@ -8,30 +8,47 @@ set -eu
 #
 # ลำดับ:
 #   1. container start → script นี้รัน (10-*)
-#   2. ถ้ามี cert อยู่แล้ว → ข้าม
-#   3. ถ้าไม่มี → สร้าง dummy → nginx start → certbot ทำ ACME challenge ได้
+#   2. หา "ทุกชื่อ cert" ที่ conf ใน /etc/nginx/projects/*.conf อ้างถึง
+#      (จากบรรทัด ssl_certificate .../live/<ชื่อ>/... ที่ไม่ใช่คอมเมนต์)
+#      เช่น edge-dormi, edge-landing
+#   3. ชื่อไหนมี cert อยู่แล้ว → ข้าม · ชื่อไหนยังไม่มี → สร้าง dummy
+#      → nginx start → certbot ทำ ACME challenge ได้
 #      → cert จริงมาแทน → 20-*.sh (inotify) reload nginx อัตโนมัติ
 # ---------------------------------------------------------------
 
-CERT_NAME="edge-dormi"
-LIVE_DIR="/etc/letsencrypt/live/${CERT_NAME}"
-FULLCHAIN="${LIVE_DIR}/fullchain.pem"
-PRIVKEY="${LIVE_DIR}/privkey.pem"
+PROJECTS_DIR="${PROJECTS_DIR:-/etc/nginx/projects}"
+LE_DIR="${LE_DIR:-/etc/letsencrypt}"
 
-if [ -f "${FULLCHAIN}" ] && [ -f "${PRIVKEY}" ]; then
-  echo "[entrypoint] Certificate already exists at ${LIVE_DIR}; skipping dummy generation" >&2
-  exit 0
+CERT_NAMES=$(sed 's/#.*//' "${PROJECTS_DIR}"/*.conf 2>/dev/null \
+  | grep -oE 'live/[^/[:space:];]+/' \
+  | cut -d/ -f2 \
+  | sort -u)
+
+# ไม่เจอ conf เลย (เช่น mount พลาด) → ถอยกลับไปใช้ชื่อเดิม เพื่อพฤติกรรมเดิมไม่เปลี่ยน
+if [ -z "${CERT_NAMES}" ]; then
+  CERT_NAMES="edge-dormi"
 fi
 
-echo "[entrypoint] No certificate found — generating dummy self-signed cert for initial startup" >&2
+for CERT_NAME in ${CERT_NAMES}; do
+  LIVE_DIR="${LE_DIR}/live/${CERT_NAME}"
+  FULLCHAIN="${LIVE_DIR}/fullchain.pem"
+  PRIVKEY="${LIVE_DIR}/privkey.pem"
 
-mkdir -p "${LIVE_DIR}"
+  if [ -f "${FULLCHAIN}" ] && [ -f "${PRIVKEY}" ]; then
+    echo "[entrypoint] Certificate '${CERT_NAME}' already exists at ${LIVE_DIR}; skipping dummy generation" >&2
+    continue
+  fi
 
-openssl req -x509 -nodes -newkey rsa:2048 \
-  -days 1 \
-  -keyout "${PRIVKEY}" \
-  -out "${FULLCHAIN}" \
-  -subj "/CN=dummy.edge.local" \
-  2>/dev/null
+  echo "[entrypoint] No certificate '${CERT_NAME}' — generating dummy self-signed cert for initial startup" >&2
 
-echo "[entrypoint] Dummy cert created at ${LIVE_DIR} (replace with real cert via certbot)" >&2
+  mkdir -p "${LIVE_DIR}"
+
+  openssl req -x509 -nodes -newkey rsa:2048 \
+    -days 1 \
+    -keyout "${PRIVKEY}" \
+    -out "${FULLCHAIN}" \
+    -subj "/CN=dummy.edge.local" \
+    2>/dev/null
+
+  echo "[entrypoint] Dummy cert '${CERT_NAME}' created at ${LIVE_DIR} (replace with real cert via certbot)" >&2
+done
