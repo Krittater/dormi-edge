@@ -1,0 +1,107 @@
+# ============================================================
+# ★★ ไฟล์นี้ยัง "ปิด" อยู่ (นามสกุล .disabled → nginx include projects/*.conf ไม่โหลด) ★★
+#   เหตุผล: conf นี้อ้าง cert edge-landing แบบ path ตายตัว ถ้าไฟล์ cert ยังไม่มีบน server
+#   nginx -t จะล้ม (release ตัวอื่นติด) และถ้า edge restart = ทุกโดเมนล่ม
+#   วิธีเปิด (ทีละขั้น ห้ามข้าม):
+#     1) landing workflow mode "prepare" → release.sh ensure-dummy-cert (สร้าง dummy บน server)
+#     2) เช็ก CERT_STATE=dummy ด้วย mode "inspect"
+#     3) merge commit ที่ rename ไฟล์นี้เป็น 40-landing.conf (branch feat/landing-vps-enable)
+#     4) ดึง edge ลง server แล้ว nginx -t && nginx -s reload
+#   runbook: dormi/docs/pipeline/landing-to-vps/06-release.md
+# ============================================================
+# ============================================================
+# Landing (Next.js standalone)  →  dormi-linkandrent.com (apex) + www
+# ------------------------------------------------------------
+# ★ ใช้ cert แยก "edge-landing" (ไม่ใช่ edge-dormi) — ดูเหตุผลที่ 30-web.conf
+#   scripts/issue-cert.sh เลือกโดเมนตามไฟล์ที่อ้าง live/<ชื่อ cert>/ → ออกใบนี้ด้วย
+#     sh scripts/issue-cert.sh edge-landing
+#   ใบนี้ออกได้ "หลัง" DNS apex + www ชี้มาที่ edge แล้วเท่านั้น (ACME http-01)
+#   ก่อนหน้านั้น nginx ใช้ dummy cert (10-init-dummy-cert.sh) → start ได้ปกติ
+#
+# ★ container: deploy/dormi-landing/docker-compose.yml (project dormi-landing, service dormi-landing)
+#   deploy: deploy/dormi-landing/release.sh · runbook: deploy/README.md
+#
+# ★ limit_req_zone ประกาศที่นี่ได้ เพราะ nginx.conf include ไฟล์นี้ภายใน http {}
+# ============================================================
+
+upstream dormi_landing_pool {
+    zone dormi_landing_pool 64k;
+    least_conn;
+    server dormi-landing:3000 resolve;   # service:port ของ landing Node server
+    keepalive 16;
+}
+
+# กันบอท/โฆษณากินเครื่องร่วมกับระบบลูกค้า: 20 req/s ต่อ IP (burst 40)
+limit_req_zone $binary_remote_addr zone=landing_per_ip:10m rate=20r/s;
+
+# ── :80 — ACME challenge + ไป apex ด้วย HTTPS ──
+server {
+    listen 80;
+    server_name dormi-linkandrent.com www.dormi-linkandrent.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    location / {
+        return 301 https://dormi-linkandrent.com$request_uri;
+    }
+}
+
+# ── :443 — www → apex ──
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name www.dormi-linkandrent.com;
+
+    ssl_certificate     /etc/letsencrypt/live/edge-landing/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/edge-landing/privkey.pem;
+
+    include /etc/nginx/snippets/landing_security_headers.conf;
+
+    return 301 https://dormi-linkandrent.com$request_uri;
+}
+
+# ── :443 — Landing (apex) ──
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name dormi-linkandrent.com;
+
+    ssl_certificate     /etc/letsencrypt/live/edge-landing/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/edge-landing/privkey.pem;
+
+    include /etc/nginx/snippets/landing_security_headers.conf;
+
+    limit_req_status 429;
+
+    location = /whoami { return 200 "dormi-landing\n"; }
+
+    # asset ที่ hash ในชื่อไฟล์ → cache ได้ถาวร (Next ส่ง immutable มาอยู่แล้ว ซ้ำเพื่อไม่ขึ้นกับ upstream)
+    # ไม่ใส่ limit_req: หน้าเดียวโหลดไฟล์พร้อมกันหลายสิบตัว และ serve ถูกมาก
+    # ^~ = ไม่ให้ location regex ของไฟล์ public/ ด้านล่างมาแย่ง (เช่น .woff2/.svg ใน static)
+    location ^~ /_next/static/ {
+        include /etc/nginx/snippets/proxy_common.conf;
+        proxy_pass http://dormi_landing_pool;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        include /etc/nginx/snippets/landing_security_headers.conf;
+    }
+
+    # ไฟล์ใน public/ (รูป วิดีโอ mp4 ถึง ~5MB) Next ส่ง max-age=0 และไม่มี CDN ของ Vercel แล้ว
+    # ชื่อไฟล์ไม่มี hash → cache แค่ 1 ชม. (แก้ไฟล์แล้วผู้ใช้เห็นของใหม่ภายใน 1 ชม.)
+    # ไม่ใส่ limit_req: วิดีโอยิง range request หลายครั้งต่อการดูหนึ่งครั้ง
+    location ~* \.(?:mp4|webm|png|jpe?g|webp|avif|gif|svg|ico|woff2?)$ {
+        include /etc/nginx/snippets/proxy_common.conf;
+        proxy_pass http://dormi_landing_pool;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=3600" always;
+        include /etc/nginx/snippets/landing_security_headers.conf;
+    }
+
+    # ทุกอย่างที่เหลือ (รวม /_next/image ที่กิน CPU) ผ่าน rate limit
+    location / {
+        limit_req zone=landing_per_ip burst=40 nodelay;
+        include /etc/nginx/snippets/proxy_common.conf;
+        proxy_pass http://dormi_landing_pool;
+    }
+}
