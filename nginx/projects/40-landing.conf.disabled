@@ -1,4 +1,15 @@
 # ============================================================
+# ★★ ไฟล์นี้ยัง "ปิด" อยู่ (นามสกุล .disabled → nginx include projects/*.conf ไม่โหลด) ★★
+#   เหตุผล: conf นี้อ้าง cert edge-landing แบบ path ตายตัว ถ้าไฟล์ cert ยังไม่มีบน server
+#   nginx -t จะล้ม (release ตัวอื่นติด) และถ้า edge restart = ทุกโดเมนล่ม
+#   วิธีเปิด (ทีละขั้น ห้ามข้าม):
+#     1) landing workflow mode "prepare" → release.sh ensure-dummy-cert (สร้าง dummy บน server)
+#     2) เช็ก CERT_STATE=dummy ด้วย mode "inspect"
+#     3) merge commit ที่ rename ไฟล์นี้เป็น 40-landing.conf (branch feat/landing-vps-enable)
+#     4) ดึง edge ลง server แล้ว nginx -t && nginx -s reload
+#   runbook: dormi/docs/pipeline/landing-to-vps/06-release.md
+# ============================================================
+# ============================================================
 # Landing (Next.js standalone)  →  dormi-linkandrent.com (apex) + www
 # ------------------------------------------------------------
 # ★ ใช้ cert แยก "edge-landing" (ไม่ใช่ edge-dormi) — ดูเหตุผลที่ 30-web.conf
