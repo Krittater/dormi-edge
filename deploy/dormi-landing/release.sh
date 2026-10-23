@@ -58,7 +58,7 @@ verify_edge() {
     admin=$(edge_probe /admin) || admin="000 "
     acode=${admin%% *}
     aloc=${admin#* }
-    if [[ "${home%% *}" == 200 && "$acode" =~ ^(302|307|308)$ && "$aloc" == */admin/login* ]]; then
+    if [[ "${home%% *}" == 200 && "$acode" =~ ^(302|307|308)$ && "$aloc" == "https://$HOST/admin/login"* ]]; then
       echo "EDGE_OK / -> ${home%% *} · /admin -> $acode $aloc"
       return 0
     fi
@@ -161,6 +161,10 @@ rollback() {
       lcompose down
     fi
   fi
+  # image ที่พังไม่ต้องเก็บ (~350MB ต่อตัว) — ลบเฉพาะเมื่อไม่ได้เป็นตัวที่ถอยกลับไปใช้
+  if [[ "$PHASE" == swap && "$ROLLBACK_IMAGE" != "$NEW_IMAGE" ]]; then
+    docker rmi "$NEW_IMAGE" >/dev/null 2>&1 || true
+  fi
   exit "$rc"
 }
 trap rollback ERR
@@ -204,7 +208,7 @@ mkdir -p "$RELEASES_DIR"
 echo "$(date -Is) | ${SHA:0:7} | $NEW_IMAGE | prev=${OLD_ID:-none}" >> "$RELEASES_DIR/RELEASES.log"
 # shellcheck disable=SC2012
 ls -1t "$RELEASES_DIR"/*.tar.gz 2>/dev/null | tail -n +$((KEEP_TARBALLS + 1)) | xargs -r rm -f -- || true
-# ลบ tag image เก่า (เหลือ ตัวใหม่ + :prev + ตัวที่รันก่อนหน้า) ไม่งั้นดิสก์โตทีละ ~150MB
+# ลบ tag image เก่า (เหลือ ตัวใหม่ + :prev + ตัวที่รันก่อนหน้า) ไม่งั้นดิสก์โตทีละ ~350MB
 for t in $(docker images "$IMAGE_REPO" --format '{{.Tag}}'); do
   [[ "$t" == "${SHA:0:7}" || "$t" == prev ]] && continue
   tid=$(docker image inspect --format '{{.Id}}' "$IMAGE_REPO:$t" 2>/dev/null || true)
