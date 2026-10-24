@@ -84,6 +84,16 @@ mustnot '\xE0'
 mustnot 'ภาษา'
 mustnot 'pathmail'
 mustnot 'zz%40'
+# nginx error log ทั้งบรรทัด (I1): open() "/var/www/certbot/.well-known/acme-challenge/<path ที่ถอดรหัสแล้ว>" failed
+must 'open() \"/var/www/certbot/.well-known/acme-challenge/[text]acme\" failed (2: No such file or directory)'
+must 'open() \"/var/www/certbot/.well-known/acme-challenge/[email]\" failed'
+must 'acme-challenge/[enc]acmesecret[enc]\" failed'
+mustnot 'ภาษาไทยacme'
+mustnot 'acmemail'
+mustnot 'example.com'
+mustnot 'acmesecret%'
+# negative: บรรทัด Nest ที่มีไทยปกติต้องไม่ถูกแตะ (กฎทั้งบรรทัดจำกัดที่รูปแบบ error log ของ nginx)
+must 'keep-thai ข้อความไทยปกติ'
 # เบอร์แบบ 66 นำหน้า ไม่มี +
 must 'send failed for [phone]'
 mustnot '66812345678'

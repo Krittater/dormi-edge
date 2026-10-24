@@ -2,6 +2,8 @@
 
 เรียงใหม่ → เก่า
 
+- 2026-10-24 · developer · PII fix I1 (review): `pii.alloy` stage 3c ปิด **ทั้งบรรทัด** ของ nginx error log (รูปแบบ `YYYY/MM/DD hh:mm:ss [`): ชุด `\xHH`/`%XX` → `[enc]`, ไม่ใช่ ASCII → `[text]` — กัน `open() "/var/www/certbot/.well-known/acme-challenge/<path ถอดรหัสแล้ว>" failed` (ACME location บนพอร์ต 80) · บรรทัด Nest ไม่โดน (มี negative test)
+
 - 2026-10-24 · developer · PII fix B1 (tester): `pii.alloy` stage 3b ปิดข้อความอิสระใน **path** ของ nginx (`uri`/`referer` JSON + `request:`/`upstream:`/`referrer:` ของ error log): ชุด `%XX` → `[enc]`, ไม่ใช่ ASCII → `[text]` (id/uuid ASCII คงไว้) · deploy: `git pull` + `monitoring.sh up` (restart alloy) เท่านั้น · ยังไม่ครอบข้อความ error ที่ฝัง path ในช่องอื่น เช่น `open() "/usr/share/nginx/html/<uri>" failed`
 
 - 2026-10-24 · developer · PII fix: Postgres `log_statement=mod` (prod) ทำให้ INSERT/UPDATE พร้อมค่าจริงหลุดขึ้น Grafana Cloud ผ่าน `LOG:  statement|execute|bind|parse|duration` + `DETAIL:  parameters:` → `pii.alloy` (stage postgres) ทิ้งทั้งบรรทัดแล้ว + fixture/assert ใน redact-check · ดูสดด้วย `docker logs dormi_postgres` · **ยังต้องอนุมัติแยก**: ปิด `log_statement` ที่ backend compose (แตะ DB prod) · deploy: `git pull` + `monitoring.sh up` (restart alloy) เท่านั้น

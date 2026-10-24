@@ -21,6 +21,8 @@
 //   3. อีเมล (รวมแบบ URL-encoded %40)                   → [email]
 //   3b. ข้อความอิสระใน path ของ URL (nginx JSON uri/referer · error log request:/upstream:/referrer:)
 //      percent-encoded ติดกัน → [enc] · ตัวอักษรที่ไม่ใช่ ASCII → [text] · ASCII id/สแลชคงไว้
+//   3c. บรรทัด error log ของ nginx ทั้งบรรทัด (เช่น open() "/var/www/certbot/…/<path>" failed): xHH/%XX → [enc], ไม่ใช่ ASCII → [text]
+//      (stage.match ที่รูปแบบบรรทัด — container อื่นเช่น Nest ไม่โดน)
 //   4. เลข 13 หลัก (บัตรประชาชน มี/ไม่มีขีด)             → [national-id]  (ก่อนเบอร์ — กันเบอร์กินบางส่วนของเลขบัตร)
 //   5. เบอร์ไทย มือถือ 06/08/09 + บ้าน 02–07 (0x / +66 / 66) → [phone]
 //   6. IPv4 ทุกตัวในบรรทัด (รวม client: ของ nginx)        → octet สุดท้ายเป็น 0
@@ -202,6 +204,27 @@ declare "redact" {
 		stage.replace {
 			expression = `referrer: "([^"]*)"`
 			replace    = `{{ regexReplaceAllLiteral "[^\\x00-\\x7F]+" (regexReplaceAllLiteral "(?:%[0-9A-Fa-f]{2}|\\\\x[0-9A-Fa-f]{2})+" .Value "[enc]") "[text]" }}`
+		}
+
+		// ── 3c. nginx error log ทั้งบรรทัด ──
+		// ข้อความ error อื่นฝัง path ที่ถอดรหัสแล้วด้วย เช่น `open() "/var/www/certbot/.well-known/acme-challenge/<ไทย>" failed`
+		// (location ACME บนพอร์ต 80 รับ path อะไรก็ได้) ซึ่งกฎ request:/upstream:/referrer: ไม่เห็น
+		// → เฉพาะบรรทัดที่หน้าตาเป็น error log ของ nginx (`2026/10/24 09:00:00 [`) ปิดทั้งบรรทัด:
+		//   \xHH / %XX ติดกัน → [enc] · ตัวอักษรที่ไม่ใช่ ASCII → [text] (อีเมล `@` ถูก stage 3 เป็น [email] ไปแล้ว)
+		// ห้ามใช้กับ container อื่น: log Nest มีภาษาไทยปกติ (selector ล็อกที่รูปแบบบรรทัด ไม่ใช่ชื่อ container
+		// เพราะ test ไม่มี label container)
+		stage.match {
+			selector = `{job=~".*"} |~ "^[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9:]{8} [[]"`
+
+			stage.replace {
+				expression = `((?:%[0-9A-Fa-f]{2}|\\x[0-9A-Fa-f]{2})+)`
+				replace    = "[enc]"
+			}
+
+			stage.replace {
+				expression = `([^\x00-\x7F]+)`
+				replace    = "[text]"
+			}
 		}
 
 		// ── 4. เลขบัตรประชาชน 13 หลัก ──
