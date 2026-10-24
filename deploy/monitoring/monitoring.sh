@@ -60,11 +60,15 @@ check_env_keys() {
 
 pg_env() { docker exec "$PG_CONTAINER" printenv "$1" 2>/dev/null || true; }
 
+# อ่านอย่างเดียว: role monitor + สถานะ pg_stat_statements (ไม่มีค่าลับ)
 role_state() {
   local u d
   u=$(pg_env POSTGRES_USER); d=$(pg_env POSTGRES_DB)
-  docker exec "$PG_CONTAINER" psql -X -At -U "${u:-dormi}" -d "${d:-dormi_v2}" -c \
-    "SELECT 'MONITOR_ROLE=' || CASE WHEN EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dormi_monitor') THEN 'present' ELSE 'missing' END" \
+  u=${u:-dormi}; d=${d:-dormi_v2}
+  docker exec "$PG_CONTAINER" psql -X -At -U "$u" -d "$d" \
+    -c "SELECT 'MONITOR_ROLE=' || CASE WHEN EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dormi_monitor') THEN 'present' ELSE 'missing' END" \
+    -c "SELECT 'SHARED_PRELOAD_LIBRARIES=' || coalesce(nullif(current_setting('shared_preload_libraries'), ''), '<empty>')" \
+    -c "SELECT 'PG_STAT_STATEMENTS_EXTENSION($d)=' || CASE WHEN EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements') THEN 'present' ELSE 'missing' END" \
     2>/dev/null || echo "MONITOR_ROLE=unknown (ต่อ $PG_CONTAINER ไม่ได้)"
 }
 

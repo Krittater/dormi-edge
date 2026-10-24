@@ -12,7 +12,10 @@
 - bind mount ไฟล์ที่ host ยังไม่มี = docker สร้างเป็นโฟลเดอร์ → `monitoring.sh up` สร้าง `/var/log/dormi-db-backup.log` ก่อน
 - ทดสอบในเครื่อง (Docker Desktop): `/:/host/root:ro,rslave` ใช้ไม่ได้ (root ไม่ใช่ shared mount) → override เป็น `:ro` เฉพาะตอนทดสอบ; git-bash ต้อง `MSYS_NO_PATHCONV=1` กับ `docker run` ที่มี path ขึ้นต้น `/`
 - ทดสอบ `monitoring.sh` ในเครื่อง: รันใน `docker:29.9.1-cli` + `apk add bash openssl util-linux`, mount repo เป็น `/root/dormi-edge`, ตั้ง `PG_CONTAINER` และ `DEPLOY_LOCK_FILE=/tmp/...`
-- pg_stat_statements ต้องมี `shared_preload_libraries` + `CREATE EXTENSION` — ไม่มี = alloy log `collector failed ... stat_statements` ทุกนาที (ไม่กระทบ metric อื่น)
+- pg_stat_statements ต้องมี `shared_preload_libraries` + `CREATE EXTENSION` — ถ้า DB ยังไม่เปิด alloy จะ log `collector failed ... stat_statements` ทุกนาที (ไม่กระทบ metric อื่น) · ตรวจด้วย `monitoring.sh inspect`
+- nginx error_log ออก stderr ของ container เดียวกับ access log และเป็นข้อความอิสระ (`request: "GET /x?.."`, `upstream:`, `referrer:`) — regex ของ JSON ไม่ครอบ ต้องมี stage แยก
+- Postgres log `DETAIL: Failing row contains (...)` / `Key (..)=(..)` มีค่าจริงทั้งแถว → stage เฉพาะ container postgres ใน pii.alloy
+- socket (`docker.sock`) ใส่ `:ro` ไม่ได้ทำให้อ่านอย่างเดียว — API ยังสั่งได้ทุกอย่าง
 - `loki.source.docker`: stdout+stderr ใน stream เดียวเวลาสลับลำดับ → Loki ตอบ `entry too far behind` → แยกด้วย label `stream`
 - Loki local (`local-config.yaml`) query ingester แค่ 3 ชม. ล่าสุด (`query_ingesters_within`) → log ที่ timestamp เก่ากว่า 3 ชม. "หาย" ตอน query ในเครื่อง ไม่ใช่ pipeline ทิ้ง
 - `process_resident_memory_bytes` ของ alloy ไม่ใช่ตัววัด OOM — ดู `docker stats` / `container_memory_working_set_bytes{name="dormi-alloy"}`

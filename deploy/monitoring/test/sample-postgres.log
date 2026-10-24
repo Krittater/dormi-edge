@@ -1,0 +1,5 @@
+2026-10-24 02:00:00.000 UTC [123] ERROR:  duplicate key value violates unique constraint "UQ_users_name"
+2026-10-24 02:00:00.000 UTC [123] DETAIL:  Key (lower("fullName"::text), "apartmentId")=(somchai.j สมชาย ใจดี, 5f0c1e2d-0000-4000-8000-000000000001) already exists.
+2026-10-24 02:00:01.000 UTC [124] DETAIL:  Failing row contains (5f0c1e2d-0000-4000-8000-000000000002, somchai.j สมชาย ใจดี, 12500.00, null).
+2026-10-24 02:00:02.000 UTC [125] STATEMENT:  INSERT INTO people VALUES ('stmtname.x', 4321.50)
+	  WHERE note = 'contsecret.y'

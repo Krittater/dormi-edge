@@ -329,7 +329,7 @@ container `dormi-alloy` ตัวเดียว (project `dormi-monitoring`, `m
 
 | เก็บอะไร | มาจาก | label หลัก |
 |---|---|---|
-| CPU / RAM / ดิสก์ / filesystem ของเครื่อง | `prometheus.exporter.unix` (mount `/proc` `/sys` `/` แบบ ro) | `job="integrations/unix"` |
+| CPU / RAM / ดิสก์ / filesystem ของเครื่อง | `prometheus.exporter.unix` (mount `/proc` `/sys` `/` ของ host แบบ ro) | `job="integrations/unix"` |
 | RAM / CPU / network ต่อ container + network ของเครื่อง (`id="/"`) | `prometheus.exporter.cadvisor` (`pid: host`, `cgroup: host`, containerd.sock) | `name=<container>` |
 | Postgres (ขนาด DB, connection, lock, cache hit, top 20 query) | `prometheus.exporter.postgres` ผ่าน role `dormi_monitor` (`pg_monitor` อ่านอย่างเดียว) | `job="integrations/postgres"` |
 | metrics แอป `dormi_*` | ทุก container ที่มี label `dormi.metrics.port` → `http://<container>:9464/metrics` ทุก 30 วิ | `job="dormi-app"`, `container`, `service` |
@@ -338,7 +338,7 @@ container `dormi-alloy` ตัวเดียว (project `dormi-monitoring`, `m
 
 ทุก series/log ติด `env="prod"`, `host="dormi-linkandrent"`
 
-**ตัด PII ก่อนส่งออก** (`monitoring/pii.alloy` — ใช้ร่วมกับ test): รหัสสี ANSI ของ Nest · query string ใน `uri`/`referer` · อีเมล → `[email]` · เบอร์ไทย → `[phone]` · เลข 13 หลัก → `[national-id]` · IPv4 → octet สุดท้าย `.0` · IPv6 ใน `remote_addr`/`x_forwarded_for` → /48
+**ตัด PII ก่อนส่งออก** (`monitoring/pii.alloy` — ใช้ร่วมกับ test): รหัสสี ANSI ของ Nest · query string ใน `uri`/`referer` · อีเมล → `[email]` · เบอร์ไทย → `[phone]` · เลข 13 หลัก → `[national-id]` · nginx error log (`request:`/`upstream:`/`referrer:` query string) · Postgres `Failing row contains (..)` → `[row]`, `Key (..)=(..)` → `=[key]`, `STATEMENT:` + บรรทัดต่อ (tab) → `[statement]`/`[continued]` · เบอร์แบบ `66xxxxxxxxx` · IPv4 → octet สุดท้าย `.0` · IPv6 ใน `remote_addr`/`x_forwarded_for` → /48
 - แก้กติกาแล้วต้องรันตรวจก่อนเสมอ: `bash deploy/monitoring/test/run-redact-check.sh` (ต้องได้ `REDACT_CHECK_PASS`)
 - ตรวจ syntax: `docker run --rm -v "$PWD/deploy/monitoring:/m" grafana/alloy:v1.20.1 fmt /m/config.alloy`
 
@@ -358,7 +358,8 @@ bash deploy/monitoring/monitoring.sh inspect   # อ่านอย่างเ�
 - edge `docker-compose.yml` เพิ่ม log rotation 10m×3 ให้ `edge`/`certbot` → มีผลเมื่อ recreate container edge ครั้งถัดไป (nginx หยุดไม่กี่วินาที)
 
 **ข้อควรรู้:**
-- `pg_stat_statements` (query ช้า top 20, ไม่ส่งข้อความ SQL) ต้องเปิด extension ใน Postgres ก่อน (`shared_preload_libraries` = ต้อง restart DB → ขออนุมัติแยก) — ระหว่างนี้ alloy log `collector failed ... stat_statements` ทุกนาที และ panel "query ช้า" = No data
+- `pg_stat_statements` (query ช้า top 20, ไม่ส่งข้อความ SQL) ต้องเปิดใน Postgres ก่อนถึงจะมีข้อมูล — `monitoring.sh inspect` แสดง `shared_preload_libraries` และว่ามี extension ใน DB แอปหรือยัง · ถ้า prod ยังไม่เปิด: alloy log `collector failed ... stat_statements` ทุกนาที และ Postgres เขียน ERROR + STATEMENT (~20 บรรทัด) ลง log ทุกนาที (ถูกปิดค่าแล้วแต่เพิ่มปริมาณ log) และ panel "query ช้า" = No data · การเปิดต้อง restart DB → ขออนุมัติแยก
+- **ความเสี่ยงที่ยอมรับ:** alloy mount `docker.sock` + `containerd.sock` = สิทธิ์ระดับ root ของเครื่อง (`:ro` บน socket ไม่ได้จำกัด API) — จำเป็นต่อ cAdvisor/log/discovery · ลดด้วย image pin, ไม่ publish port, `no-new-privileges` (socket-proxy ยังไม่ทำ)
 - อย่าให้ logrotate สร้างไฟล์ `/var/log/dormi-db-backup.log` ใหม่ (mount เป็นไฟล์เดียว) — ถ้าจะหมุนใช้ `copytruncate`
 - งบ series Grafana Cloud free 10k: ทดสอบในเครื่อง (13 container) ~1.4–1.6k · ระวัง histogram `dormi_http_request_duration_seconds` บน prod (route × status × bucket × replica) · `pg_settings_*` เก็บเฉพาะ max_connections ฯลฯ
 - host network: node exporter ใน container เห็นแค่ network ของตัวเอง → ใช้ `container_network_*{id="/"}` ของ cAdvisor แทน

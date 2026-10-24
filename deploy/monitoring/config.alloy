@@ -148,7 +148,7 @@ prometheus.scrape "containers" {
 // ─────────────────────────── metrics: Postgres ───────────────────────────
 // PG_MONITOR_DSN สร้างโดย `monitoring.sh setup` (role dormi_monitor + pg_monitor, อ่านอย่างเดียว)
 // stat_statements: จำกัด top 20 และไม่เอาข้อความ SQL (include_query = false) — ข้อความ SQL อาจมีค่าจริง
-//   ต้องเปิด extension pg_stat_statements ใน Postgres ก่อนถึงจะมีข้อมูล (ยังไม่เปิดบน prod — ดู README)
+//   ต้องเปิด pg_stat_statements ใน Postgres ก่อนถึงจะมีข้อมูล — สถานะดูจาก `monitoring.sh inspect` (ดู README)
 
 prometheus.exporter.postgres "db" {
 	data_source_names = [sys.env("PG_MONITOR_DSN")]
@@ -264,10 +264,11 @@ prometheus.relabel "budget" {
 		action        = "drop"
 	}
 
-	// Go/process runtime ของ exporter เอง + histogram ภายในของ cAdvisor/node ที่ไม่ได้ใช้
+	// Go/process runtime ของ exporter เอง + metric ภายในของ cAdvisor/node ที่ไม่ได้ใช้
+	//   เฉพาะ job integrations/* — metric ของแอป (job dormi-app) รวม process_* ของ prom-client ต้องอยู่ครบ
 	rule {
-		source_labels = ["__name__"]
-		regex         = "(go|process|promhttp|postgres_exporter|node_scrape_collector|cadvisor_version|container_scrape_error|machine_(nvm|scrape)).*"
+		source_labels = ["job", "__name__"]
+		regex         = "integrations/.+;(go|process|promhttp|postgres_exporter|node_scrape_collector|cadvisor_version|container_scrape_error|machine_(nvm|scrape)).*"
 		action        = "drop"
 	}
 }

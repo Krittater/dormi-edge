@@ -5,7 +5,12 @@
 #   bash /root/dormi-edge/deploy/monitoring/monitoring.sh inspect | setup | up | down
 # ไม่ publish port: UI/API ของ alloy ฟังที่ 127.0.0.1 ภายใน container เท่านั้น
 # secret อยู่ใน .env ข้างไฟล์นี้ (chmod 600, ไม่อยู่ใน git) — ดู .env.example
-# ทุก mount ของ host เป็น read-only
+#
+# ★ ความเสี่ยงที่ยอมรับ: docker.sock และ containerd.sock = สิทธิ์ระดับ root ของทั้งเครื่อง
+#   `:ro` บน socket ไม่ได้จำกัดคำสั่ง API (สร้าง/ลบ container ได้เหมือนเดิม) — ใครคุม alloy ได้ = คุมเครื่องได้
+#   จำเป็นต่อ cAdvisor + log ทุก container + หา target · ลดความเสี่ยงด้วย: image pin, ไม่ publish port,
+#   UI ฟังแค่ 127.0.0.1, no-new-privileges · (socket-proxy / cap_drop / read_only ยังไม่ทำในรอบนี้)
+#   mount ที่เป็นไฟล์/โฟลเดอร์ของ host เป็น read-only ทั้งหมด
 # ============================================================
 name: dormi-monitoring
 
@@ -31,6 +36,9 @@ services:
     # cAdvisor อ่าน network ของแต่ละ container ผ่าน /proc/<pid>/net ของ host — ไม่มี = ไม่มี container_network_*
     # (alloy มี docker.sock อยู่แล้ว = สิทธิ์ระดับ root ของ host; pid: host ไม่ได้เพิ่มความเสี่ยงจากเดิม)
     pid: host
+    # process ใน container ยกสิทธิ์เพิ่มผ่าน setuid/file capability ไม่ได้
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       - ./pii.alloy:/etc/alloy/pii.alloy:ro
@@ -41,6 +49,7 @@ services:
       - /sys:/host/sys:ro
       - /:/host/root:ro,rslave
       # container metrics + log ทุก container + หา container ที่มี label dormi.metrics.port
+      # (socket: `:ro` ไม่ได้ทำให้อ่านอย่างเดียว — ดูความเสี่ยงที่หัวไฟล์)
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       # cAdvisor รุ่นนี้ลงทะเบียน docker factory ผ่าน containerd client — ไม่มี socket = ไม่เห็น container ใดเลย

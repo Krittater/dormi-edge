@@ -12,6 +12,8 @@
 -- คำสั่งที่มีรหัสผ่านต้องไม่ถูกบันทึกลง log ของ Postgres / pg_stat_statements
 SET log_statement = 'none';
 SET log_min_duration_statement = -1;
+-- ALTER ROLE ล้ม = Postgres log ข้อความ statement (มีรหัส) ตาม log_min_error_statement → ปิดไว้
+SET log_min_error_statement = panic;
 SET pg_stat_statements.track_utility = off;
 
 SELECT 'CREATE ROLE dormi_monitor'

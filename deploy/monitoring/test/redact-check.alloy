@@ -3,7 +3,11 @@ import.file "pii" {
 }
 
 local.file_match "sample" {
-	path_targets = [{"__path__" = file.path_join(module_path, "sample.log"), "job" = "redact-check"}]
+	path_targets = [
+		{"__path__" = file.path_join(module_path, "sample.log"), "job" = "redact-check"},
+		// จำลอง log ของ container Postgres (stage ที่ scope ด้วย label container)
+		{"__path__" = file.path_join(module_path, "sample-postgres.log"), "job" = "redact-check", "container" = "dormi_postgres", "service" = "postgres"},
+	]
 }
 
 loki.source.file "sample" {
