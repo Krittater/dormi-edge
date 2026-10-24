@@ -79,6 +79,23 @@ mustnot 'stmtname.x'
 mustnot '4321.50'
 mustnot 'contsecret.y'
 must '[continued]'
+# Postgres ข้อความ error อื่น ๆ ที่มีค่าที่ผู้ใช้พิมพ์
+must 'invalid input syntax for type uuid: \"[value]\" at character 45'
+must 'invalid input value for enum user_role_enum: \"[value]\"'
+must 'Token \"[value]\" is invalid.'
+must 'CONTEXT:  [context]'
+must 'QUERY:  [query]'
+must 'argument types: \"[value]\"'
+must 'relation \"job_runs\" does not exist at character 73'
+mustnot 'uuidsecret'
+mustnot 'enumsecret'
+mustnot 'tokensecret'
+mustnot 'ctxsecret'
+mustnot 'qrysecret'
+mustnot 'hintsecret'
+# negative: stage ของ Postgres ต้องไม่แตะ container อื่น
+must '[Audit] STATEMENT:  keep-me-statement'
+must 'entry="\tkeep-me-tab: \"keep-me-quoted\""'
 
 if [[ $fail -ne 0 ]]; then
   echo REDACT_CHECK_FAIL

@@ -338,7 +338,7 @@ container `dormi-alloy` ตัวเดียว (project `dormi-monitoring`, `m
 
 ทุก series/log ติด `env="prod"`, `host="dormi-linkandrent"`
 
-**ตัด PII ก่อนส่งออก** (`monitoring/pii.alloy` — ใช้ร่วมกับ test): รหัสสี ANSI ของ Nest · query string ใน `uri`/`referer` · อีเมล → `[email]` · เบอร์ไทย → `[phone]` · เลข 13 หลัก → `[national-id]` · nginx error log (`request:`/`upstream:`/`referrer:` query string) · Postgres `Failing row contains (..)` → `[row]`, `Key (..)=(..)` → `=[key]`, `STATEMENT:` + บรรทัดต่อ (tab) → `[statement]`/`[continued]` · เบอร์แบบ `66xxxxxxxxx` · IPv4 → octet สุดท้าย `.0` · IPv6 ใน `remote_addr`/`x_forwarded_for` → /48
+**ตัด PII ก่อนส่งออก** (`monitoring/pii.alloy` — ใช้ร่วมกับ test): รหัสสี ANSI ของ Nest · query string ใน `uri`/`referer` · อีเมล → `[email]` · เบอร์ไทย → `[phone]` · เลข 13 หลัก → `[national-id]` · nginx error log (`request:`/`upstream:`/`referrer:` query string) · Postgres `Failing row contains (..)` → `[row]`, `Key (..)=(..)` → `=[key]`, `STATEMENT:` + บรรทัดต่อ (tab) → `[statement]`/`[continued]`, `CONTEXT:`/`QUERY:` → `[context]`/`[query]`, ค่าหลัง `: "…"` / `Token "…"` → `"[value]"` · เบอร์แบบ `66xxxxxxxxx` · IPv4 → octet สุดท้าย `.0` · IPv6 ใน `remote_addr`/`x_forwarded_for` → /48
 - แก้กติกาแล้วต้องรันตรวจก่อนเสมอ: `bash deploy/monitoring/test/run-redact-check.sh` (ต้องได้ `REDACT_CHECK_PASS`)
 - ตรวจ syntax: `docker run --rm -v "$PWD/deploy/monitoring:/m" grafana/alloy:v1.20.1 fmt /m/config.alloy`
 

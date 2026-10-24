@@ -3,3 +3,11 @@
 2026-10-24 02:00:01.000 UTC [124] DETAIL:  Failing row contains (5f0c1e2d-0000-4000-8000-000000000002, somchai.j สมชาย ใจดี, 12500.00, null).
 2026-10-24 02:00:02.000 UTC [125] STATEMENT:  INSERT INTO people VALUES ('stmtname.x', 4321.50)
 	  WHERE note = 'contsecret.y'
+2026-10-24 02:00:03.000 UTC [126] ERROR:  invalid input syntax for type uuid: "สมชาย ใจดี uuidsecret" at character 45
+2026-10-24 02:00:04.000 UTC [127] ERROR:  invalid input value for enum user_role_enum: "enumsecret"
+2026-10-24 02:00:05.000 UTC [128] ERROR:  invalid input syntax for type json
+2026-10-24 02:00:05.000 UTC [128] DETAIL:  Token "tokensecret" is invalid.
+2026-10-24 02:00:05.000 UTC [128] CONTEXT:  JSON data, line 1: ctxsecret
+2026-10-24 02:00:06.000 UTC [129] QUERY:  SELECT 'qrysecret'
+2026-10-24 02:00:07.000 UTC [130] HINT:  No operator matches the given name and argument types: "hintsecret"
+2026-10-24 02:00:08.000 UTC [131] ERROR:  relation "job_runs" does not exist at character 73

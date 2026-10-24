@@ -14,7 +14,7 @@
 - ทดสอบ `monitoring.sh` ในเครื่อง: รันใน `docker:29.9.1-cli` + `apk add bash openssl util-linux`, mount repo เป็น `/root/dormi-edge`, ตั้ง `PG_CONTAINER` และ `DEPLOY_LOCK_FILE=/tmp/...`
 - pg_stat_statements ต้องมี `shared_preload_libraries` + `CREATE EXTENSION` — ถ้า DB ยังไม่เปิด alloy จะ log `collector failed ... stat_statements` ทุกนาที (ไม่กระทบ metric อื่น) · ตรวจด้วย `monitoring.sh inspect`
 - nginx error_log ออก stderr ของ container เดียวกับ access log และเป็นข้อความอิสระ (`request: "GET /x?.."`, `upstream:`, `referrer:`) — regex ของ JSON ไม่ครอบ ต้องมี stage แยก
-- Postgres log `DETAIL: Failing row contains (...)` / `Key (..)=(..)` มีค่าจริงทั้งแถว → stage เฉพาะ container postgres ใน pii.alloy
+- Postgres log มีค่าที่ผู้ใช้ส่งมาหลายที่: `DETAIL: Failing row`/`Key (..)=(..)`, `STATEMENT:` + บรรทัดต่อ (tab), `CONTEXT:`/`QUERY:`, `type uuid: "<ค่า>"`, `Token "<ค่า>"` → stage เฉพาะ container postgres ใน pii.alloy (มี negative test ว่าไม่แตะ container อื่น)
 - socket (`docker.sock`) ใส่ `:ro` ไม่ได้ทำให้อ่านอย่างเดียว — API ยังสั่งได้ทุกอย่าง
 - `loki.source.docker`: stdout+stderr ใน stream เดียวเวลาสลับลำดับ → Loki ตอบ `entry too far behind` → แยกด้วย label `stream`
 - Loki local (`local-config.yaml`) query ingester แค่ 3 ชม. ล่าสุด (`query_ingesters_within`) → log ที่ timestamp เก่ากว่า 3 ชม. "หาย" ตอน query ในเครื่อง ไม่ใช่ pipeline ทิ้ง

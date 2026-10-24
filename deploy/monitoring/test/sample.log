@@ -3,3 +3,5 @@
 2026-10-24T20:30:01Z OK daily/x 123
 2026/10/24 09:00:00 [error] 29#29: *1 connect() failed (111: Connection refused) while connecting to upstream, client: 11.22.33.44, server: app.dormi-linkandrent.com, request: "GET /reset?token=tok123secret HTTP/1.1", upstream: "http://172.18.0.5:3000/reset?token=tok123secret", host: "app.dormi-linkandrent.com", referrer: "https://app.dormi-linkandrent.com/login?u=refsecret"
 [Nest] 1  - 10/24/2026, 9:00:01 AM    WARN [Mailer] send failed for 66812345678
+[Nest] 1  - 10/24/2026, 9:00:02 AM     LOG [Audit] STATEMENT:  keep-me-statement
+	keep-me-tab: "keep-me-quoted"

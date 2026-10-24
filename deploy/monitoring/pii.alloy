@@ -14,7 +14,9 @@
 //      (ข้อความอิสระ: request: "GET /x?.. HTTP/1.1", upstream: "http://..?..", referrer: "..?..")
 //   2b. log ของ container Postgres: `Failing row contains (...)` → [row] · `Key (cols)=(values)` → `Key (cols)=[key]`
 //      (DETAIL ของ constraint error มีค่าทุกคอลัมน์ เช่น ชื่อ / ยอดเงิน) · `STATEMENT:  <sql>` → [statement]
-//      · บรรทัดต่อที่ขึ้นต้นด้วย tab → [continued]
+//      · บรรทัดต่อที่ขึ้นต้นด้วย tab → [continued] · `CONTEXT:`/`QUERY:` → [context]/[query]
+//      · ค่าในเครื่องหมายคำพูดหลัง ": " หรือ `Token "…"` → "[value]" (เช่น `invalid input syntax for type uuid: "…"`)
+//      (stage นี้จำกัดเฉพาะ container ชื่อมี postgres — test มี negative case ว่า container อื่นไม่โดน)
 //   3. อีเมล (รวมแบบ URL-encoded %40)                   → [email]
 //   4. เลข 13 หลัก (บัตรประชาชน มี/ไม่มีขีด)             → [national-id]  (ก่อนเบอร์ — กันเบอร์กินบางส่วนของเลขบัตร)
 //   5. เบอร์ไทย มือถือ 06/08/09 + บ้าน 02–07 (0x / +66 / 66) → [phone]
@@ -121,6 +123,29 @@ declare "redact" {
 			stage.replace {
 				expression = `^\t(.+)$`
 				replace    = "[continued]"
+			}
+
+			// CONTEXT: / QUERY: สะท้อนค่าหรือ SQL ที่ผู้ใช้ส่งมา → ปิดทั้งก้อน
+			stage.replace {
+				expression = `CONTEXT:  (.+)`
+				replace    = "[context]"
+			}
+
+			stage.replace {
+				expression = `QUERY:  (.+)`
+				replace    = "[query]"
+			}
+
+			// ค่าที่ผู้ใช้พิมพ์ในข้อความ error: `... type uuid: "<ค่า>"`, `... enum x: "<ค่า>"`, `Token "<ค่า>"`
+			// เก็บข้อความชนิด error ไว้ (ยังวิเคราะห์ได้) · ชื่อ relation/constraint ที่ไม่ได้ตามหลัง ": " ไม่โดน
+			stage.replace {
+				expression = `Token "(.*)"`
+				replace    = "[value]"
+			}
+
+			stage.replace {
+				expression = `: "(.*)"`
+				replace    = "[value]"
 			}
 		}
 
