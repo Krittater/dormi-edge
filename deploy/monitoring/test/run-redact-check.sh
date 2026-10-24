@@ -17,7 +17,9 @@ trap cleanup EXIT
 MSYS_NO_PATHCONV=1 docker run -d --name "$NAME" -v "$MOUNT:/m:ro" "$IMAGE" \
   run --storage.path=/tmp/alloy /m/test/redact-check.alloy >/dev/null
 
-EXPECTED=$(cat "$HERE/test/sample.log" "$HERE/test/sample-postgres.log" | grep -c .)
+# บรรทัด log_statement ของ Postgres (statement/execute/bind/parse/duration + DETAIL: parameters) ถูกทิ้งทั้งบรรทัดใน pii.alloy → ไม่ถึง loki.echo
+DROPPED=$(grep -cE 'LOG:  (statement|execute|bind|parse|duration)|DETAIL:  parameters:' "$HERE/test/sample-postgres.log" || true)
+EXPECTED=$(( $(cat "$HERE/test/sample.log" "$HERE/test/sample-postgres.log" | grep -c .) - DROPPED ))
 out=""
 for _ in $(seq 1 30); do
   out=$(docker logs "$NAME" 2>&1 | grep 'component_id=loki.echo.out' || true)
@@ -94,6 +96,28 @@ mustnot 'tokensecret'
 mustnot 'ctxsecret'
 mustnot 'qrysecret'
 mustnot 'hintsecret'
+# Postgres log_statement=mod: prod ตั้งไว้ → ทุก INSERT/UPDATE/DELETE ลง log พร้อมค่าจริง → ต้องไม่ออกนอกเครื่องเลย
+mustnot '1500.00'
+mustnot 'สมชาย'
+mustnot '0812345678'
+mustnot 'INSERT INTO'
+mustnot 'RETURNING'
+mustnot 'parameters:'
+mustnot 'UPDATE users'
+mustnot 'durexecsecret'
+mustnot 'durstmtsecret'
+mustnot 'namedexecsecret'
+mustnot 'paramsecret'
+mustnot 'bindsecret'
+mustnot 'parsesecret'
+mustnot 'durbindsecret'
+mustnot 'durparsesecret'
+mustnot 'multilinesecret'
+mustnot 'SET note'
+# บรรทัดต่อ (tab) ของ statement ที่ถูกทิ้ง ยังต้องถูกปิดเป็น [continued] (ดู mustnot 'SET note' ข้างบน)
+# negative: log ปกติของ Postgres ต้องยังมาถึง (ไม่ใช่ทิ้งทั้ง container) — LOG ที่ไม่ใช่ SQL + ERROR (SQLSTATE class คงอยู่)
+must 'LOG:  checkpoint starting: time'
+must 'ERROR:  null value in column \"amount\" of relation \"incomes\" violates not-null constraint'
 # negative: stage ของ Postgres ต้องไม่แตะ container อื่น
 must '[Audit] STATEMENT:  keep-me-statement'
 must 'entry="\tkeep-me-tab: \"keep-me-quoted\""'

@@ -16,6 +16,7 @@
 //      (DETAIL ของ constraint error มีค่าทุกคอลัมน์ เช่น ชื่อ / ยอดเงิน) · `STATEMENT:  <sql>` → [statement]
 //      · บรรทัดต่อที่ขึ้นต้นด้วย tab → [continued] · `CONTEXT:`/`QUERY:` → [context]/[query]
 //      · ค่าในเครื่องหมายคำพูดหลัง ": " หรือ `Token "…"` → "[value]" (เช่น `invalid input syntax for type uuid: "…"`)
+//      · ★ log_statement: `LOG:  statement|execute|bind|parse|duration …` และ `DETAIL:  parameters: …` → ทิ้งทั้งบรรทัด
 //      (stage นี้จำกัดเฉพาะ container ชื่อมี postgres — test มี negative case ว่า container อื่นไม่โดน)
 //   3. อีเมล (รวมแบบ URL-encoded %40)                   → [email]
 //   4. เลข 13 หลัก (บัตรประชาชน มี/ไม่มีขีด)             → [national-id]  (ก่อนเบอร์ — กันเบอร์กินบางส่วนของเลขบัตร)
@@ -102,6 +103,17 @@ declare "redact" {
 		// ── 2b. Postgres: DETAIL ของ constraint error มีค่าจริงทั้งแถว ──
 		stage.match {
 			selector = `{container=~".*postgres.*"}`
+
+			// log_statement=mod (prod ตั้งไว้) → ทุก INSERT/UPDATE/DELETE ลง log พร้อมค่าจริง:
+			//   LOG:  statement: …  ·  LOG:  execute <ชื่อ>: …  ·  LOG:  bind|parse <ชื่อ>: …
+			//   LOG:  duration: <x> ms  statement|execute|bind|parse …  ·  DETAIL:  parameters: $1 = '…'
+			// ทิ้งทั้งบรรทัด (ไม่ mask): บรรทัดที่ปิดค่าแล้วเหลือแค่ "มี SQL รัน" ไม่มีประโยชน์ต่อ dashboard/alert
+			// (อัตรา transaction ได้จาก postgres exporter อยู่แล้ว) และการทิ้งไม่พึ่ง regex ปิดค่าให้ครบทุกรูปแบบ
+			// ดูสด ๆ บน server: docker logs dormi_postgres · ERROR:/FATAL:/WARNING: ไม่ถูกแตะ (ยังวิเคราะห์ error ได้)
+			stage.drop {
+				expression          = `(?:LOG:  (?:statement: |(?:execute|bind|parse) |duration: )|DETAIL:  parameters: )`
+				drop_counter_reason = "pg_log_statement"
+			}
 
 			stage.replace {
 				expression = `Failing row contains (\(.*\))`

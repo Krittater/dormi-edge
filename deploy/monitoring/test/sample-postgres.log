@@ -11,3 +11,19 @@
 2026-10-24 02:00:06.000 UTC [129] QUERY:  SELECT 'qrysecret'
 2026-10-24 02:00:07.000 UTC [130] HINT:  No operator matches the given name and argument types: "hintsecret"
 2026-10-24 02:00:08.000 UTC [131] ERROR:  relation "job_runs" does not exist at character 73
+2026-10-24 01:00:00.123 UTC [123] LOG:  execute <unnamed>: INSERT INTO "incomes"("amount", "note") VALUES ($1, $2) RETURNING "incomeId"
+2026-10-24 01:00:00.123 UTC [123] DETAIL:  parameters: $1 = '1500.00', $2 = 'ค่าเช่า นายสมชาย ใจดี'
+2026-10-24 01:00:00.124 UTC [124] LOG:  statement: UPDATE users SET phone = '0812345678' WHERE "userId" = 7
+2026-10-24 01:00:00.125 UTC [125] LOG:  duration: 1.2 ms  execute <unnamed>: UPDATE users SET note = 'durexecsecret' WHERE "userId" = $1
+2026-10-24 01:00:00.126 UTC [126] LOG:  duration: 0.4 ms  statement: SELECT 'durstmtsecret'
+2026-10-24 01:00:00.127 UTC [127] LOG:  execute S_1: UPDATE rooms SET note = 'namedexecsecret' WHERE id = $1
+2026-10-24 01:00:00.127 UTC [127] DETAIL:  parameters: $1 = 'paramsecret2'
+2026-10-24 01:00:00.128 UTC [128] LOG:  bind S_2: UPDATE rooms SET note = 'bindsecret' WHERE id = $1
+2026-10-24 01:00:00.128 UTC [128] DETAIL:  parameters: $1 = 'paramsecret3'
+2026-10-24 01:00:00.129 UTC [129] LOG:  parse S_3: UPDATE rooms SET note = 'parsesecret' WHERE id = $1
+2026-10-24 01:00:00.130 UTC [130] LOG:  duration: 0.3 ms  bind <unnamed>: UPDATE rooms SET note = 'durbindsecret'
+2026-10-24 01:00:00.131 UTC [131] LOG:  duration: 0.2 ms  parse <unnamed>: UPDATE rooms SET note = 'durparsesecret'
+2026-10-24 01:00:00.132 UTC [132] LOG:  statement: UPDATE rooms
+	   SET note = 'multilinesecret'
+2026-10-24 01:00:00.133 UTC [133] LOG:  checkpoint starting: time
+2026-10-24 01:00:00.134 UTC [134] ERROR:  null value in column "amount" of relation "incomes" violates not-null constraint

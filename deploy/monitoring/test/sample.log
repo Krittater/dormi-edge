@@ -6,3 +6,4 @@
 [Nest] 1  - 10/24/2026, 9:00:01 AM    WARN [Mailer] send failed for 66812345678
 [Nest] 1  - 10/24/2026, 9:00:02 AM     LOG [Audit] STATEMENT:  keep-me-statement
 	keep-me-tab: "keep-me-quoted"
+[Nest] 1  - 10/24/2026, 9:00:03 AM     LOG [Audit] LOG:  statement: keep-me-nonpg
