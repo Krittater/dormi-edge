@@ -225,11 +225,15 @@ discovery.relabel "app_metrics" {
 	}
 }
 
+// honor_labels = true: metric dormi_job_* มี label `job` ของตัวเอง (billing.daily ฯลฯ) ชนกับ job="dormi-app" ของการ scrape
+//   ค่าเริ่มต้น (false) Alloy จะเปลี่ยน label ของแอปเป็น `exported_job` → alert/dashboard ที่ query job="billing.daily" ไม่เจอข้อมูล
+//   (ทดสอบกับ grafana/alloy:v1.20.1) · เปิดแล้ว series ที่ไม่มี label job (dormi_http_*, dormi_node_*) ยังได้ job="dormi-app"
 prometheus.scrape "app" {
 	targets         = discovery.relabel.app_metrics.output
 	job_name        = "dormi-app"
 	scrape_interval = "30s"
 	metrics_path    = "/metrics"
+	honor_labels    = true
 	forward_to      = [prometheus.relabel.budget.receiver]
 }
 
