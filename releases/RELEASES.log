@@ -45,3 +45,4 @@ v1.0.40 | 2026-10-21 06:19:31 | be=~f739bb3 fe=0ad1d21 | migration=AddSecurityEv
 v1.0.41 | 2026-10-22 01:45:57 | be=252c47e fe=4eb17e6 | migration=AddEmailVerifications1792200000000 | scope=all | auto
 v1.0.42 | 2026-10-22 04:28:00 | be=252c47e fe=4eb17e6 | migration=AddEmailVerifications1792200000000 | scope=all | auto
 v1.0.43 | 2026-10-24 01:47:45 | be=252c47e fe=4eb17e6 | migration=AddEmailVerifications1792200000000 | scope=all | auto
+v1.0.44 | 2026-10-24 01:59:55 | be=5c22db8 fe=4eb17e6 | migration=AddEmailVerifications1792200000000 | scope=all | auto
