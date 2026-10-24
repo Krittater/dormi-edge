@@ -26,3 +26,16 @@
 - marker ใน `/var/log/dormi-db-backup.log` (Alloy → alert): `DONE <unix ts>` เฉพาะเมื่อ DB+ไฟล์ครบ · `FAILED: …` · ไฟล์ล้ม = exit 5 โดย DB ที่อัปแล้วยังมี `OK`
 - test-db-dump.sh ใช้ `docker` ปลอมใน `$d/bin` (นำหน้า PATH) + uploader ปลอม — ไม่แตะ docker/Spaces จริง · รันบน Git Bash Windows ช้า (หลายนาที) เพราะ spawn process เยอะ
 - ใน Git Bash `grep -c $'\r'` ภายใน `$(…)`/for ได้ผลเท่ากับนับทุกบรรทัด (ใช้เช็ก CRLF ไม่ได้) → ใช้ `od -c | head` แทน · `.sh` ต้อง LF (ดู .gitattributes)
+
+## Grafana content (`monitoring/grafana/`, `terraform/monitoring-alerts.tf`)
+- ตรวจไฟล์: `bash monitoring/grafana/test/validate.sh` → `VALIDATE_PASS` (ใช้ python + PyYAML แทน jq/yq · บน Windows `python3` อาจเป็นตัวหลอกของ MS Store — สคริปต์เลือกตัวที่ `import yaml` ได้) · ชื่อ metric ใหม่ใน query ต้องเพิ่มใน `test/expected-metrics.txt` ก่อน (หลังยืนยันว่ามีจริง)
+- label `job` ของ `dormi_job_*` ชนกับ job="dormi-app" ของ scrape → ถ้า `honor_labels` เป็น false (ค่าเริ่มต้นของ Alloy) จะกลายเป็น `exported_job` และ alert งานเงียบหมด → `prometheus.scrape "app"` ต้องมี `honor_labels = true` (ทดสอบกับ alloy v1.20.1)
+- alert งานใช้ `max by (job)` ข้าม replica เสมอ (replica ที่ไม่ใช่ scheduler ค้างค่า gauge ตอน boot) · metric หายตอน app ดับ (scrape ล้ม = stale) → alert งานเป็น NoData=OK ได้ เพราะมี rule "แอปหรือตัวเก็บข้อมูลหยุดส่งข้อมูล" (`max(up{job="dormi-app"}) or vector(0)`) เป็นตัวกันเหนียว
+- Grafana 11.3: `PUT /api/v1/provisioning/folder/<uid>/rule-groups/<g>` กับ rule ที่มี uid แต่ยังไม่เคยมี → 500 (`could not find alert rule`) → import.sh สร้างทีละ rule (GET → 404 → POST) ก่อนแล้วค่อย PUT group
+- `GET /api/folders/<uid>` ของโฟลเดอร์ที่ยังไม่มีตอบ **403** (ไม่ใช่ 404) → import.sh ดูจากรายการ `GET /api/folders`
+- Loki instant query ที่คืนหลายบรรทัด: Grafana 11 รวมเป็นตารางเดียว (feature | Value) → bargauge ต้อง `reduceOptions.values = true` ไม่งั้นได้ตัวเลขเดียว · LogQL `regexp` ที่ไม่ match ทำให้ label ว่างกลายเป็นอีกกลุ่ม → ใส่ line filter (`|= ...`) ก่อน regexp (ไม่งั้นนับหอเกินไป 1)
+- regex ใน PromQL ใช้ backtick (raw string) — ไม่ต้อง escape แบ็กสแลชซ้อนสองชั้นใน JSON/YAML
+- import.sh: token ไปทาง `curl --config -` (stdin) · python บน Windows เขียน text เป็น CRLF → ไฟล์ที่ bash อ่านด้วย `read` ต้องเปิดด้วย `newline=""` · ค่า datasource uid ตั้งทับได้ด้วย `PROM_DS_UID`/`LOKI_DS_UID`
+- ทดสอบกับ Grafana local: container `obstest-*` (prom v3.13.4 `--web.enable-remote-write-receiver`, loki 3.7.8, grafana-oss 11.3.1, alloy 1.20.1, postgres:16-alpine + pg_stat_statements) · สร้าง datasource uid `grafanacloud-prom`/`grafanacloud-logs` · สร้าง service account Editor + token ผ่าน API · ลบ container/network หลังจบ
+- `terraform validate` ต้อง `init` (โหลด provider) — ทำใน copy นอก repo (คัดลอก `*.tf` + `.terraform.lock.hcl`) แล้ว `terraform init -backend=false && terraform validate` · `alert_emails` ไม่มี default → `plan`/`apply` ทุกครั้ง (รวม resize) ต้องมี `terraform.tfvars`
+- heredoc ในเครื่องมือ bash ลดแบ็กสแลชคู่เหลือตัวเดียว → ไฟล์ที่มีแบ็กสแลช (regex, HCL) เขียนด้วย Write/Edit ไม่ใช่ heredoc

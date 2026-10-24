@@ -1,7 +1,8 @@
 # Terraform — backup ของ Dormi (DigitalOcean)
 
 ชุดเล็กที่สุดที่ใช้งานได้จริง: **ดูแล droplet production + เปิด backup + snapshot + ที่เก็บ dump รายวัน**
-ไม่มี module ไม่มีตัวแปร — อ่านไฟล์ `.tf` ทีละไฟล์ก็เข้าใจทั้งหมด
+ไม่มี module · มีตัวแปรเดียวคือ `alert_emails` (ใน `monitoring-alerts.tf`) — อ่านไฟล์ `.tf` ทีละไฟล์ก็เข้าใจทั้งหมด
+★ `alert_emails` ไม่มีค่า default (ไม่ใส่อีเมลใน repo) → ทุกครั้งที่ `plan`/`apply` ต้องมีไฟล์ `terraform.tfvars` (ถูก `.gitignore` กันไว้) เช่น `alert_emails = ["ชื่อ@บริษัท.com"]` ไม่งั้น Terraform จะถามค่าก่อน
 
 ## Terraform คืออะไร (สั้น ๆ)
 
@@ -17,6 +18,7 @@
 | `droplet.tf` | เครื่อง production: ขนาด, backup รายสัปดาห์, กันลบ, ห้ามขยายดิสก์ตอน resize |
 | `snapshot.tf` | snapshot ทั้งเครื่องก่อน resize |
 | `spaces.tf` | bucket `dormi-db-backups` (private) ลบไฟล์เก่ากว่า 14 วันเอง |
+| `monitoring-alerts.tf` | แจ้งเตือนอีเมลของ DigitalOcean: ดิสก์ > 85%, RAM > 90%, CPU > 90% (10 นาที) — ขั้น H7 ใน `../monitoring/README.md` |
 | `.terraform.lock.hcl` | ล็อกรุ่น provider — commit |
 | `.gitignore` | กัน state / ไฟล์ลับ ไม่ให้หลุดเข้า git |
 

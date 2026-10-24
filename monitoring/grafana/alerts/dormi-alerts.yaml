@@ -1,0 +1,330 @@
+# ============================================================
+# Alert rules ของ Dormi (Grafana-managed) — รูปแบบ provisioning ของ Grafana (apiVersion 1)
+# ------------------------------------------------------------
+# นำเข้าด้วย: bash monitoring/grafana/import.sh   (แปลงเป็น API: PUT /api/v1/provisioning/folder/dormi/rule-groups/<group>)
+# ไม่ใช้กับ file provisioning ตรง ๆ: ข้อความ {{ $labels.x }} ถูก Grafana แปลง $... เป็น env ตอนอ่านไฟล์
+#
+# วิธีอ่านแต่ละ rule:  A = query · B = reduce (เอาค่าล่าสุด) · C = เงื่อนไขที่ทำให้ alert ดัง (threshold)
+#   rule ที่เป็น "A ... > 0" = query กรองเงื่อนไขมาแล้ว มีค่า (>0) เฉพาะตอนผิดปกติ
+# datasource uid: grafanacloud-prom / grafanacloud-logs (uid มาตรฐานของ Grafana Cloud)
+#
+# ★ กติกาที่ตกลงไว้
+#   • alert งาน (job) ใช้ max() ข้าม instance — replica ของ api ที่ไม่ใช่ scheduler ค้างค่า gauge ตอน boot
+#     ถ้าไม่ใช้ max จะเตือนผิด
+#   • job label ของ dormi_job_* ต้องเป็น job="billing.daily" ฯลฯ → config.alloy ต้องตั้ง honor_labels = true
+#     ที่ prometheus.scrape "app" (ไม่งั้น Alloy เปลี่ยนชื่อเป็น exported_job) — ดู monitoring/README.md
+#   • ไม่มี alert จาก log ของ Postgres (ถ้าจะเพิ่ม ต้องตัด error ของ pg_stat_statements ออก — prod อาจยังไม่มี extension)
+#   • ผู้รับ alert = notification policy / contact point ที่ตั้งใน UI (H5) — ไฟล์นี้ไม่ระบุผู้รับ
+# ============================================================
+apiVersion: 1
+
+groups:
+  # ───────────────────────── ระบบล่ม / error ─────────────────────────
+  - orgId: 1
+    name: dormi-availability
+    folder: Dormi
+    interval: 1m
+    rules:
+      - uid: dormi-web-down
+        title: เว็บ/API ล่ม
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: grafanacloud-prom
+            model:
+              refId: A
+              datasource: { type: prometheus, uid: grafanacloud-prom }
+              # ล้มติดกัน 2 ครั้ง: check รันทุก 2 นาที → ในช่วง 5 นาทีมีผลอย่างน้อย 2 รอบ ถ้าทุกรอบล้ม max = 0 → ค่า = 1
+              expr: '1 - max by (instance) (max_over_time(probe_success{instance=~`https://(app\.|dormi-api\.|admin-api\.)?dormi-linkandrent\.com/.*`}[5m]))'
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - { refId: B, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: dropNN }, datasource: { type: __expr__, uid: __expr__ } } }
+          - { refId: C, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: C, type: threshold, expression: B, conditions: [{ evaluator: { type: gt, params: [0] }, operator: { type: and }, query: { params: [C] }, reducer: { type: last, params: [] }, type: query }], datasource: { type: __expr__, uid: __expr__ } } }
+        # ไม่มีข้อมูล = synthetic check หยุด/ถูกลบ → ถือว่าผิดปกติ (ดู summary)
+        noDataState: Alerting
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: 'เว็บ/API ล่ม: {{ $labels.instance }}'
+          description: 'ตรวจจากภายนอกไม่ผ่านติดกัน 2 รอบ (ประมาณ 4 นาที) — ลูกค้าอาจเข้าใช้งานไม่ได้ · ถ้า alert นี้ขึ้นว่า "ไม่มีข้อมูล" แปลว่า Synthetic check หยุดทำงานหรือถูกลบ · ดูแถว "ระบบปกติไหม" ใน dashboard Dormi ภาพรวม'
+        labels: { severity: critical, team: dormi }
+
+      - uid: dormi-error-spike
+        title: error พุ่ง
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: grafanacloud-prom
+            model:
+              refId: A
+              datasource: { type: prometheus, uid: grafanacloud-prom }
+              # สัดส่วน 5xx ใน 10 นาที เฉพาะเมื่อมี request อย่างน้อย 20 ครั้ง (กันเตือนผิดตอนคนใช้น้อย)
+              expr: '(sum(increase(dormi_http_requests_total{status=~"5.."}[10m])) / sum(increase(dormi_http_requests_total[10m]))) and (sum(increase(dormi_http_requests_total[10m])) >= 20)'
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - { refId: B, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: dropNN }, datasource: { type: __expr__, uid: __expr__ } } }
+          - { refId: C, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: C, type: threshold, expression: B, conditions: [{ evaluator: { type: gt, params: [0.02] }, operator: { type: and }, query: { params: [C] }, reducer: { type: last, params: [] }, type: query }], datasource: { type: __expr__, uid: __expr__ } } }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: 'error พุ่ง: request ล้มเหลว (5xx) เกิน 2% ใน 10 นาที'
+          description: 'สัดส่วน request ที่เซิร์ฟเวอร์ตอบ error = {{ humanizePercentage $values.B.Value }} (ขั้นต่ำ 20 request) · ดู dashboard Dormi ภาพรวม แถว "ระบบปกติไหม" และดู log ของ container ใน Grafana Explore (Loki)'
+        labels: { severity: critical, team: dormi }
+
+      - uid: dormi-cert-expiry
+        title: cert ใกล้หมด
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: grafanacloud-prom
+            model:
+              refId: A
+              datasource: { type: prometheus, uid: grafanacloud-prom }
+              # จำนวนวันที่เหลือของใบรับรอง (> 0 กรองกรณี check ล้มจนอ่านวันหมดอายุไม่ได้ ซึ่งค่าเป็น 0)
+              expr: 'min by (instance) (((probe_ssl_earliest_cert_expiry{instance=~`https://(app\.|dormi-api\.|admin-api\.)?dormi-linkandrent\.com/.*`} > 0) - time()) / 86400)'
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - { refId: B, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: dropNN }, datasource: { type: __expr__, uid: __expr__ } } }
+          - { refId: C, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: C, type: threshold, expression: B, conditions: [{ evaluator: { type: lt, params: [14] }, operator: { type: and }, query: { params: [C] }, reducer: { type: last, params: [] }, type: query }], datasource: { type: __expr__, uid: __expr__ } } }
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: 'cert ใกล้หมด: {{ $labels.instance }} เหลือ {{ humanize $values.B.Value }} วัน'
+          description: 'ใบรับรอง https ของเว็บนี้จะหมดอายุภายใน 14 วัน — certbot ควรต่ออายุอัตโนมัติ (ต่ออายุเมื่อเหลือ 30 วัน) ถ้ายังเหลือน้อยแปลว่าการต่ออายุไม่ทำงาน ให้ทีมเทคนิคตรวจ container certbot'
+        labels: { severity: warning, team: dormi }
+
+  # ───────────────────────── งานเบื้องหลัง + backup ─────────────────────────
+  - orgId: 1
+    name: dormi-jobs
+    folder: Dormi
+    interval: 1m
+    rules:
+      - uid: dormi-billing-daily
+        title: ออกบิลรายวันไม่สำเร็จ
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: grafanacloud-prom
+            model:
+              refId: A
+              datasource: { type: prometheus, uid: grafanacloud-prom }
+              # (1) ไม่สำเร็จมานานกว่า 26 ชม. (93600 วินาที) หรือ (2) มีรอบที่ล้มใน 1 ชม.ล่าสุด
+              # max by (job) = เอาค่าของ replica ที่รัน scheduler (replica อื่นค้างค่าตอน boot)
+              expr: '((time() - max by (job) (dormi_job_last_success_timestamp_seconds{job="billing.daily"})) > 93600) or (sum by (job) (increase(dormi_job_runs_total{job="billing.daily",status="failed"}[1h])) > 0)'
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - { refId: B, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: dropNN }, datasource: { type: __expr__, uid: __expr__ } } }
+          - { refId: C, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: C, type: threshold, expression: B, conditions: [{ evaluator: { type: gt, params: [0] }, operator: { type: and }, query: { params: [C] }, reducer: { type: last, params: [] }, type: query }], datasource: { type: __expr__, uid: __expr__ } } }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: 'ออกบิลรายวันไม่สำเร็จ (billing.daily)'
+          description: 'งานออกบิลรายวันล้มเหลว หรือไม่เคยสำเร็จเลยในรอบ 26 ชั่วโมง — ผู้เช่าอาจไม่ได้รับบิล · ดูแถว "งานเบื้องหลัง" ใน dashboard และ log ของ container scheduler · (ถ้าไม่มีข้อมูล metric ของงานเลย alert "แอปหรือตัวเก็บข้อมูลหยุดส่งข้อมูล" จะดังแทน)'
+        labels: { severity: critical, team: dormi }
+
+      - uid: dormi-minute-jobs
+        title: งานทุกนาทีหยุดรัน
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: grafanacloud-prom
+            model:
+              refId: A
+              datasource: { type: prometheus, uid: grafanacloud-prom }
+              # วินาทีนับจากรอบล่าสุดที่รันจบ (สำเร็จหรือล้มก็นับ) · max by (job) ข้าม replica
+              expr: 'time() - max by (job) (dormi_job_last_run_timestamp_seconds{job=~"billing.utility-calc|slip.retry"})'
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - { refId: B, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: dropNN }, datasource: { type: __expr__, uid: __expr__ } } }
+          - { refId: C, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: C, type: threshold, expression: B, conditions: [{ evaluator: { type: gt, params: [600] }, operator: { type: and }, query: { params: [C] }, reducer: { type: last, params: [] }, type: query }], datasource: { type: __expr__, uid: __expr__ } } }
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: 'งานทุกนาทีหยุดรัน: {{ $labels.job }}'
+          description: 'งาน {{ $labels.job }} (คำนวณค่าน้ำไฟ/ลองตรวจสลิปซ้ำ) ไม่รันเกิน 10 นาที — scheduler อาจค้างหรือ container api ล้ม · ตรวจ container ที่รัน scheduler'
+        labels: { severity: critical, team: dormi }
+
+      - uid: dormi-collector-down
+        title: แอปหรือตัวเก็บข้อมูลหยุดส่งข้อมูล
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: grafanacloud-prom
+            model:
+              refId: A
+              datasource: { type: prometheus, uid: grafanacloud-prom }
+              # 1 = มี replica อย่างน้อย 1 ตัวถูก scrape ได้ · 0 = ทุกตัวล่ม หรือไม่มีข้อมูลเลย (Alloy หยุด/แอปล่มทั้งหมด)
+              # ★ alert อื่นที่ใช้ metric (งาน, error, RAM) เงียบเมื่อไม่มีข้อมูล — rule นี้คือตัวกันเหนียว
+              expr: 'max(up{job="dormi-app"}) or vector(0)'
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - { refId: B, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: dropNN }, datasource: { type: __expr__, uid: __expr__ } } }
+          - { refId: C, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: C, type: threshold, expression: B, conditions: [{ evaluator: { type: lt, params: [1] }, operator: { type: and }, query: { params: [C] }, reducer: { type: last, params: [] }, type: query }], datasource: { type: __expr__, uid: __expr__ } } }
+        noDataState: Alerting
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: 'แอปหรือตัวเก็บข้อมูลหยุดส่งข้อมูลเกิน 5 นาที'
+          description: 'Grafana ไม่เห็น metric จากแอป (container api ล่มทั้งหมด หรือ Alloy (container dormi-alloy) หยุดทำงาน) — alert และ dashboard ส่วนใหญ่จะไม่อัปเดตจนกว่าจะแก้ · บน server: docker ps / bash deploy/monitoring/monitoring.sh inspect'
+        labels: { severity: critical, team: dormi }
+
+  - orgId: 1
+    name: dormi-backup
+    folder: Dormi
+    interval: 5m
+    rules:
+      - uid: dormi-backup-missing
+        title: backup ไม่สำเร็จ (ไม่พบ DONE ใน 26 ชม.)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: grafanacloud-logs
+            model:
+              refId: A
+              datasource: { type: loki, uid: grafanacloud-logs }
+              # จำนวนบรรทัด DONE (marker ที่ dump สำเร็จครบ) ใน 26 ชม. · ไม่มีบรรทัดเลย = Loki ไม่คืนค่า → NoData → Alerting
+              expr: 'sum(count_over_time({job="db-backup"} |= " DONE " [26h]))'
+              queryType: instant
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - { refId: B, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: dropNN }, datasource: { type: __expr__, uid: __expr__ } } }
+          - { refId: C, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: C, type: threshold, expression: B, conditions: [{ evaluator: { type: lt, params: [1] }, operator: { type: and }, query: { params: [C] }, reducer: { type: last, params: [] }, type: query }], datasource: { type: __expr__, uid: __expr__ } } }
+        noDataState: Alerting
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: 'backup ไม่สำเร็จ: ไม่พบบรรทัด DONE ใน 26 ชั่วโมง'
+          description: 'backup ฐานข้อมูล/ไฟล์รายวันไม่จบครบ (หรือ log backup ไม่ถูกส่งมา Grafana) — ตรวจบน server: tail /var/log/dormi-db-backup.log และ cat /var/backups/dormi/last-success'
+        labels: { severity: critical, team: dormi }
+
+      - uid: dormi-backup-failed
+        title: backup ไม่สำเร็จ (พบ FAILED:)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: grafanacloud-logs
+            model:
+              refId: A
+              datasource: { type: loki, uid: grafanacloud-logs }
+              expr: 'sum(count_over_time({job="db-backup"} |= "FAILED:" [1h]))'
+              queryType: instant
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - { refId: B, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: dropNN }, datasource: { type: __expr__, uid: __expr__ } } }
+          - { refId: C, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: C, type: threshold, expression: B, conditions: [{ evaluator: { type: gt, params: [0] }, operator: { type: and }, query: { params: [C] }, reducer: { type: last, params: [] }, type: query }], datasource: { type: __expr__, uid: __expr__ } } }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: 'backup ไม่สำเร็จ: พบ FAILED: ใน log backup (1 ชม.ล่าสุด)'
+          description: 'สคริปต์ backup รายงานว่าขั้นตอนใดขั้นตอนหนึ่งล้ม (ฐานข้อมูล หรือรูปสลิป/ไฟล์) — ตรวจบน server: tail /var/log/dormi-db-backup.log'
+        labels: { severity: critical, team: dormi }
+
+  # ───────────────────────── ทรัพยากรเครื่อง / ฐานข้อมูล ─────────────────────────
+  - orgId: 1
+    name: dormi-resources
+    folder: Dormi
+    interval: 1m
+    rules:
+      - uid: dormi-disk-full
+        title: ดิสก์จะเต็ม
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: grafanacloud-prom
+            model:
+              refId: A
+              datasource: { type: prometheus, uid: grafanacloud-prom }
+              # (1) ใช้เกิน 80% หรือ (2) คาดการณ์จากแนวโน้ม 6 ชม. ว่าอีก 7 วันพื้นที่ว่างติดลบ (กลับเครื่องหมายให้เป็นค่าบวก)
+              expr: '(100 * (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) > 80) or (-predict_linear(node_filesystem_avail_bytes{mountpoint="/"}[6h], 7 * 24 * 3600) > 0)'
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - { refId: B, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: dropNN }, datasource: { type: __expr__, uid: __expr__ } } }
+          - { refId: C, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: C, type: threshold, expression: B, conditions: [{ evaluator: { type: gt, params: [0] }, operator: { type: and }, query: { params: [C] }, reducer: { type: last, params: [] }, type: query }], datasource: { type: __expr__, uid: __expr__ } } }
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: 'ดิสก์จะเต็ม: ใช้เกิน 80% หรือคาดว่าจะเต็มภายใน 7 วัน'
+          description: 'พื้นที่ดิสก์ของเครื่อง dormi-linkandrent ใกล้เต็ม — เต็มแล้วฐานข้อมูลและระบบจะหยุดทำงาน · ตรวจว่าอะไรกินที่ (log, docker image/volume เก่า, backup ชั่วคราว) หรือขยายดิสก์ · ดูแถว "ทรัพยากร" ใน dashboard'
+        labels: { severity: critical, team: dormi }
+
+      - uid: dormi-ram-tight
+        title: RAM ตึง
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: grafanacloud-prom
+            model:
+              refId: A
+              datasource: { type: prometheus, uid: grafanacloud-prom }
+              # สัดส่วน RAM ที่ยังใช้ได้ (available/total)
+              expr: 'node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes'
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - { refId: B, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: dropNN }, datasource: { type: __expr__, uid: __expr__ } } }
+          - { refId: C, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: C, type: threshold, expression: B, conditions: [{ evaluator: { type: lt, params: [0.1] }, operator: { type: and }, query: { params: [C] }, reducer: { type: last, params: [] }, type: query }], datasource: { type: __expr__, uid: __expr__ } } }
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: 'RAM ตึง: เหลือใช้ได้ {{ humanizePercentage $values.B.Value }}'
+          description: 'หน่วยความจำที่ใช้ได้เหลือน้อยกว่า 10% ต่อเนื่อง 10 นาที — ระบบอาจช้าหรือ container ถูกฆ่า (OOM) · ดู "RAM ต่อ container" ใน dashboard ว่าตัวไหนกินมาก'
+        labels: { severity: warning, team: dormi }
+
+      - uid: dormi-db-connections
+        title: DB connection ใกล้เต็ม
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: grafanacloud-prom
+            model:
+              refId: A
+              datasource: { type: prometheus, uid: grafanacloud-prom }
+              expr: 'sum(pg_stat_database_numbackends) / max(pg_settings_max_connections)'
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - { refId: B, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: dropNN }, datasource: { type: __expr__, uid: __expr__ } } }
+          - { refId: C, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: C, type: threshold, expression: B, conditions: [{ evaluator: { type: gt, params: [0.8] }, operator: { type: and }, query: { params: [C] }, reducer: { type: last, params: [] }, type: query }], datasource: { type: __expr__, uid: __expr__ } } }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: 'DB connection ใกล้เต็ม: ใช้ {{ humanizePercentage $values.B.Value }} ของเพดาน'
+          description: 'จำนวน connection ฐานข้อมูลเกิน 80% ของ max_connections — เต็มแล้วแอปจะต่อ DB ไม่ได้ · ตรวจ connection ค้าง/จำนวน replica api ที่เพิ่มขึ้น'
+        labels: { severity: warning, team: dormi }

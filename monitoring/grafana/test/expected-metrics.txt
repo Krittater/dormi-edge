@@ -1,0 +1,37 @@
+# ชื่อ metric ที่ dashboard/alert ใช้ได้ (validate.sh ตรวจว่า query อ้างเฉพาะชื่อในรายการนี้)
+# เพิ่มชื่อใหม่ได้เมื่อยืนยันแล้วว่ามีจริง — แหล่งที่มาอยู่ในวงเล็บ
+
+# แอป (Task 1–2: obs-backend src/observability-service/app/metrics.ts · scrape job="dormi-app")
+dormi_http_requests_total
+dormi_http_request_duration_seconds_bucket
+dormi_job_runs_total
+dormi_job_last_run_timestamp_seconds
+dormi_job_last_success_timestamp_seconds
+
+# scrape ของ Alloy (Task 5)
+up
+
+# host (Task 5: prometheus.exporter.unix — collector cpu, meminfo, filesystem)
+node_cpu_seconds_total
+node_memory_MemAvailable_bytes
+node_memory_MemTotal_bytes
+node_filesystem_avail_bytes
+node_filesystem_size_bytes
+
+# container (Task 5: prometheus.exporter.cadvisor)
+container_memory_working_set_bytes
+
+# Postgres (Task 5: prometheus.exporter.postgres)
+pg_up
+pg_stat_database_numbackends
+pg_settings_max_connections
+pg_database_size_bytes
+pg_stat_database_blks_hit
+pg_stat_database_blks_read
+pg_stat_statements_calls_total
+pg_stat_statements_seconds_total
+
+# Synthetic Monitoring (Grafana Cloud — สร้าง check ตาม synthetic-checks.md)
+probe_success
+probe_ssl_earliest_cert_expiry
+probe_duration_seconds
