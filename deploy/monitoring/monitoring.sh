@@ -72,6 +72,26 @@ role_state() {
     2>/dev/null || echo "MONITOR_ROLE=unknown (ต่อ $PG_CONTAINER ไม่ได้)"
 }
 
+# แนะนำค่า PG_STAT_STATEMENTS จากผล role_state (อ่านอย่างเดียว ไม่แก้ .env)
+#   พร้อม = extension อยู่ใน DB และอยู่ใน shared_preload_libraries
+pgss_recommendation() {
+  local rs=$1 cur ready=no
+  cur=$(env_value PG_STAT_STATEMENTS); cur=${cur:-off}
+  if grep -q '^PG_STAT_STATEMENTS_EXTENSION(.*)=present$' <<<"$rs" \
+     && grep -q '^SHARED_PRELOAD_LIBRARIES=.*pg_stat_statements' <<<"$rs"; then
+    ready=yes
+  fi
+  if [[ $ready == yes && $cur != on ]]; then
+    echo "PG_STAT_STATEMENTS=$cur · แนะนำ: DB พร้อมแล้ว → ตั้ง PG_STAT_STATEMENTS=on ใน $ENV_FILE แล้วรัน up (เปิด panel 'query ช้า top 10')"
+  elif [[ $ready == no && $cur == on ]]; then
+    echo "PG_STAT_STATEMENTS=on · เตือน: DB ยังไม่พร้อม (ต้องมี shared_preload_libraries + CREATE EXTENSION) → alloy จะ log error ทุกนาที: ตั้งเป็น off หรือเตรียม DB ให้พร้อมก่อน"
+  elif [[ $ready == yes ]]; then
+    echo "PG_STAT_STATEMENTS=on · ปกติ (DB พร้อม)"
+  else
+    echo "PG_STAT_STATEMENTS=$cur · ปกติ (DB ยังไม่เปิด pg_stat_statements — คงปิดไว้)"
+  fi
+}
+
 alloy_state() {
   if docker inspect "$CONTAINER" >/dev/null 2>&1; then
     docker inspect --format '{{.Name}} | {{.Config.Image}} | {{.State.Status}} | health={{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}} | restarts={{.RestartCount}}' "$CONTAINER"
@@ -101,7 +121,10 @@ inspect() {
   else
     echo ".env: <ยังไม่มี> — รัน setup"
   fi
-  role_state
+  local rs
+  rs=$(role_state)
+  printf '%s\n' "$rs"
+  pgss_recommendation "$rs"
   [[ -f "$BACKUP_LOG" ]] && echo "backup log: $BACKUP_LOG ($(wc -l <"$BACKUP_LOG") บรรทัด)" || echo "backup log: <ยังไม่มี $BACKUP_LOG>"
   if docker inspect "$CONTAINER" >/dev/null 2>&1; then
     echo "--- alloy log (warn/error ล่าสุด) ---"

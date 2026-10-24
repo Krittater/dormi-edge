@@ -25,7 +25,7 @@
 | ออกบิลรายวันไม่สำเร็จ | รอบล่าสุดของงานออกบิลล้ม (รันใหม่กว่าครั้งที่สำเร็จ) หรือไม่สำเร็จเกิน 26 ชม. | ผู้เช่าอาจไม่ได้รับบิล |
 | งานทุกนาทีหยุดรัน | คำนวณน้ำไฟ/ตรวจสลิปซ้ำ หยุดเกิน 10 นาที **หรือไม่มีข้อมูลของงานเลย** | scheduler ค้าง/ดับ |
 | backup ไม่สำเร็จ (2 แบบ) | ไม่เห็นบรรทัด DONE เกิน 26 ชม. หรือเห็น FAILED: | ข้อมูลอาจไม่มีสำรอง |
-| ดิสก์จะเต็ม | ใช้เกิน 80% หรือคาดว่าเต็มใน 7 วัน | ก่อนระบบหยุดเพราะดิสก์เต็ม |
+| ดิสก์จะเต็ม | ใช้เกิน 80% หรือ (ใช้เกิน 70% และแนวโน้ม 24 ชม. คาดว่าเต็มใน 7 วัน) ต่อเนื่อง 1 ชม. | ก่อนระบบหยุดเพราะดิสก์เต็ม |
 | RAM ตึง | RAM ว่างน้อยกว่า 10% นาน 10 นาที | ระบบอาจช้า/container ถูกฆ่า |
 | cert ใกล้หมด | ใบรับรอง https เหลือ < 14 วัน | การต่ออายุอัตโนมัติไม่ทำงาน |
 | DB connection ใกล้เต็ม | ใช้เกิน 80% ของเพดาน | แอปอาจต่อฐานข้อมูลไม่ได้ |
@@ -50,11 +50,17 @@
 | **H3** | Frontend Observability → สร้าง app `dormi-web` (allowed origin `https://app.dormi-linkandrent.com`) | Faro collector URL | `.env.production` ของ frontend ตอน deploy |
 | **H4** | Administration → Service accounts → สร้าง `dormi-provisioner` สิทธิ์ **Editor** → สร้าง token | **token (ลับ)** | ใช้รันคำสั่งนำเข้าด้านล่างบนเครื่องของคุณเอง |
 | **H5** | เลือกช่องทางแจ้งเตือน: Alerting → Contact points → เพิ่ม **อีเมล** (บังคับ) + Telegram (ถ้าต้องการ) → Notification policies → ตั้ง default ให้ส่งไป contact point นั้น | — | ตั้งใน Grafana UI เอง (ไฟล์ในนี้ไม่ใส่ผู้รับ) |
-| **H6** | กำหนดอีเมลผู้รับ **สรุปรายสัปดาห์** | รายชื่ออีเมล | env `OBS_WEEKLY_REPORT_TO` บน server ตอน deploy |
+| **H6** | กำหนดอีเมลผู้รับ **สรุปรายสัปดาห์** (ส่งทุกวันจันทร์ 08:00) · ★ ตัวเลข "งานสำเร็จกี่ครั้ง" ของงานที่รันทุก api replica (เช่น `room.sweep-vacated`) = ผลรวมของทุก replica → จำนวนจริง = ตัวเลข ÷ จำนวน replica | รายชื่ออีเมล | env `OBS_WEEKLY_REPORT_TO` บน server ตอน deploy |
 | **H7** | อนุมัติ `terraform apply` สร้าง alert สำรองของ DigitalOcean (ฟรี) | — | ดูคำสั่งด้านล่าง |
 
 ### ลำดับนำเข้า (หลัง deploy monitoring + backend ขึ้น server แล้ว)
 
+0. **บน server — ก่อนข้อ 1 และก่อนรัน `import.sh`:** ติดตั้งสคริปต์ backup ใหม่ (`/usr/local/bin/dormi-db-dump` เป็นไฟล์ที่ก๊อปไว้ `git pull` ไม่อัปเดตให้ — ข้ามขั้นนี้ = backup รูปสลิป + บรรทัด `DONE` ไม่ทำงาน แล้ว alert "backup ไม่สำเร็จ" จะดัง):
+   ```bash
+   cd /root/dormi-edge && git pull
+   install -m 755 deploy/backup/db-dump-to-spaces.sh /usr/local/bin/dormi-db-dump
+   docker pull alpine:3.20
+   ```
 1. **สร้าง Synthetic checks 4 ตัว** ตาม [`grafana/synthetic-checks.md`](grafana/synthetic-checks.md) (ประมาณ 10 นาที ใน UI)
 2. **นำเข้า dashboard + alert rules** (รันบนเครื่องคุณ — token อยู่ในหน่วยความจำของ session นี้เท่านั้น ไม่ถูกบันทึก):
    ```bash
@@ -85,7 +91,8 @@
 
 - **เนื้อหาเป็นโค้ดทั้งหมด:** `grafana/dashboards/dormi-overview.json`, `grafana/alerts/dormi-alerts.yaml`, `grafana/import.sh`, `terraform/monitoring-alerts.tf` — แก้ในไฟล์แล้ว import ใหม่ (การแก้ใน UI จะถูกเขียนทับรอบ import ถัดไป) · **ลบ rule/panel ออกจากไฟล์ไม่ได้ลบใน Grafana** — import.sh สร้าง/อัปเดตเท่านั้น ต้องลบเองใน UI (Alerting → โฟลเดอร์ Dormi)
 - **ตรวจไฟล์ก่อน commit:** `bash monitoring/grafana/test/validate.sh` → ต้องได้ `VALIDATE_PASS` (ตรวจ JSON/YAML, โครง alert, ชื่อ metric ทุกตัวต้องอยู่ใน `grafana/test/expected-metrics.txt`, ไม่มี secret)
-- **ต้องพึ่ง:** `config.alloy` → `prometheus.scrape "app"` ต้องมี `honor_labels = true` (ไม่งั้น label `job` ของงาน เช่น `billing.daily` ถูกเปลี่ยนเป็น `exported_job` แล้ว alert/ตารางงานไม่เจอข้อมูล) · metric ของงานอ่านด้วย `max by (job)` เสมอ เพราะ replica api ที่ไม่ใช่ scheduler ค้างค่า `last_success` ตอน boot (โหลดจาก DB) ส่วน `last_run` มีเฉพาะ container ที่รัน scheduler — scheduler ดับแล้ว series หายไปเลย จึงตั้ง alert "งานทุกนาทีหยุดรัน" เป็น NoData = ดัง · "งานล้ม" ตัดสินจาก `last_run > last_success` ไม่ใช่ `increase()` ของ counter (counter ไม่นับครั้งแรกที่เริ่มล้มและรีเซ็ตตอน restart)
-- **Loki:** alert จาก log Postgres (ถ้าจะเพิ่ม) ต้องตัด error ของ `pg_stat_statements` ออก (prod อาจยังไม่มี extension)
+- **ต้องพึ่ง:** `config.alloy` → `prometheus.scrape "app"` ต้องมี `honor_labels = true` (ไม่งั้น label `job` ของงาน เช่น `billing.daily` ถูกเปลี่ยนเป็น `exported_job` แล้ว alert/ตารางงานไม่เจอข้อมูล) · metric ของงานอ่านด้วย `max by (job)` เสมอ เพราะ replica api ที่ไม่ใช่ scheduler ค้างค่า `last_success` ตอน boot (โหลดจาก DB) ส่วน `last_run` มีเฉพาะ container ที่รัน scheduler — scheduler ดับแล้ว series หายไปเลย จึงตั้ง alert "งานทุกนาทีหยุดรัน" เป็น NoData = ดัง · "งานล้ม" ตัดสินจาก `last_run > last_success` ไม่ใช่ `increase()` ของ counter (counter ไม่นับครั้งแรกที่เริ่มล้มและรีเซ็ตตอน restart) · ข้อจำกัดของ `last_run > last_success`: ถ้า scheduler restart สถานะ "รอบล่าสุดล้ม" จะหายไปจนกว่าจะรันรอบถัดไป (ค่า `last_run` ในหน่วยความจำหายไปกับ process) — กรณีงานรายวันที่ล้มแล้วไม่สำเร็จเกิน 26 ชม. ยังมี alert สาขา dead-man (`time() - last_success > 26 ชม.`) คอยจับต่อ
+- **pg_stat_statements เป็น opt-in:** ค่าเริ่มต้น `PG_STAT_STATEMENTS=off` (`deploy/monitoring/.env`) ⇒ ไม่มี error ทุกนาที แต่ panel "query ช้า top 10" ว่างจนกว่าจะเปิด · เปิดหลัง `shared_preload_libraries` + `CREATE EXTENSION` เสร็จ: ตั้ง `PG_STAT_STATEMENTS=on` แล้ว `monitoring.sh up` (`monitoring.sh inspect` จะแนะนำเองเมื่อ DB พร้อม)
+- **Loki:** alert จาก log Postgres (ถ้าจะเพิ่ม) ต้องตัด error ของ `pg_stat_statements` ออก (ถ้าเปิด collector ตอนที่ DB ยังไม่พร้อมจะมี error ทุกนาที)
 - **secret:** token ทุกตัวอยู่ใน env/`.env` บน server หรือในเครื่องผู้รัน เท่านั้น — `import.sh` ไม่พิมพ์ token ไม่ส่งผ่านพารามิเตอร์คำสั่ง · `alert_emails` ไม่มีค่าใน repo
 - **Rollback:** ปิดตัวเก็บข้อมูล `bash deploy/monitoring/monitoring.sh down` · ลบ alert: Grafana UI → โฟลเดอร์ Dormi → Delete · `terraform destroy -target=digitalocean_monitor_alert.disk_high` ฯลฯ (เฉพาะ 3 ตัวนี้ — ห้าม destroy ทั้งโฟลเดอร์)

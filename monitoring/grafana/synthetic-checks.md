@@ -32,6 +32,8 @@ dashboard "Dormi ภาพรวม" และ alert **เว็บ/API ล่�
 | 3 | `dormi-admin-health` | `https://admin-api.dormi-linkandrent.com/health` | API ของ admin |
 | 4 | `dormi-landing` | `https://dormi-linkandrent.com/` | หน้าแรก (landing) |
 
+> check #4 (apex) ต้องการ cert จริง — ตอนนี้ apex ใช้ Let's Encrypt จริงแล้ว (cutover landing เสร็จ 2026-10-24) จึงสร้างได้ทันที ไม่มีขั้นตอนรอ
+
 ## กฎสำคัญ (ถ้าผิด alert จะเงียบหรือเตือนผิด)
 
 - **Target ต้องเป็น URL เต็มตามตาราง** — dashboard/alert จับด้วย label `instance` = URL นี้ (ตรงชื่อโดเมน `app.` / `dormi-api.` / `admin-api.` / apex)

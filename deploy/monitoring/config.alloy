@@ -148,19 +148,27 @@ prometheus.scrape "containers" {
 // ─────────────────────────── metrics: Postgres ───────────────────────────
 // PG_MONITOR_DSN สร้างโดย `monitoring.sh setup` (role dormi_monitor + pg_monitor, อ่านอย่างเดียว)
 // stat_statements: จำกัด top 20 และไม่เอาข้อความ SQL (include_query = false) — ข้อความ SQL อาจมีค่าจริง
-//   ต้องเปิด pg_stat_statements ใน Postgres ก่อนถึงจะมีข้อมูล — สถานะดูจาก `monitoring.sh inspect` (ดู README)
+//   ★ opt-in: เปิด collector เฉพาะเมื่อ PG_STAT_STATEMENTS=on ใน .env (ค่าเริ่มต้น/ไม่ตั้ง = off)
+//     เพราะถ้า extension ยังไม่มีใน DB collector จะล้มทุกนาที (log ~30k บรรทัด/วันเข้า Loki)
+//     เปิดหลัง `CREATE EXTENSION pg_stat_statements` + shared_preload_libraries เท่านั้น — `monitoring.sh inspect` บอกว่าพร้อมหรือยัง
+//   Alloy ไม่มี if/ternary: json_path + filter ให้ array ว่าง (off) หรือ ["stat_statements"] (on) แล้ว array.concat ต่อท้าย
 
 prometheus.exporter.postgres "db" {
 	data_source_names = [sys.env("PG_MONITOR_DSN")]
 
-	enabled_collectors = [
-		"database",
-		"locks",
-		"stat_bgwriter",
-		"stat_database",
-		"stat_statements",
-		"long_running_transactions",
-	]
+	enabled_collectors = array.concat(
+		[
+			"database",
+			"locks",
+			"stat_bgwriter",
+			"stat_database",
+			"long_running_transactions",
+		],
+		json_path(
+			encoding.to_json({items = [{flag = coalesce(sys.env("PG_STAT_STATEMENTS"), "off"), collector = "stat_statements"}]}),
+			`$.items[?(@.flag=="on")].collector`,
+		),
+	)
 
 	stat_statements {
 		include_query = false

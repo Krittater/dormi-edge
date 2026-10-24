@@ -288,6 +288,12 @@ docker exec -i dormi_postgres pg_restore -U dormi -d dormi_v2 --clean --if-exist
 - ทั้งสองแบบเก็บ 14 วัน (lifecycle rule ของ bucket ครอบทั้ง bucket) · สำเนาในเครื่องที่ `/var/backups/dormi` เก็บ 3 วัน
 - log marker ที่ alert ใช้: `<ISO> OK <object> <bytes>` · `<ISO> FAILED: ...` · บรรทัดสุดท้าย `<ISO> DONE <unix ts>` เฉพาะเมื่อ DB + ไฟล์สำเร็จหมด (ไฟล์ล้ม = exit 5, ไม่มี DONE, แต่ DB ที่อัปแล้วยังอยู่)
 - ทดสอบสคริปต์ในเครื่อง (ไม่แตะของจริง): `bash deploy/backup/test-db-dump.sh`
+- ★ **`/usr/local/bin/dormi-db-dump` เป็นไฟล์ที่ก๊อปไป — `git pull` ไม่อัปเดตให้** (cron เรียกตัวนี้) ทุกครั้งที่สคริปต์ `deploy/backup/db-dump-to-spaces.sh` เปลี่ยน ต้องติดตั้งใหม่เอง ไม่งั้น backup รูปสลิปและบรรทัด `DONE` จะไม่ทำงานเลย:
+  ```bash
+  cd /root/dormi-edge && git pull
+  install -m 755 deploy/backup/db-dump-to-spaces.sh /usr/local/bin/dormi-db-dump
+  docker pull alpine:3.20      # image ที่ใช้ tar volume รูปสลิป (ดึงไว้ก่อน — กัน cron รอบแรกช้า/ล้มเพราะโหลดไม่ทัน)
+  ```
 
 กู้รูปสลิปจาก Spaces (⚠️ ทับไฟล์ชื่อซ้ำใน volume — ไฟล์ที่ไม่มีใน archive ไม่ถูกลบ):
 ```bash
@@ -370,6 +376,9 @@ container `dormi-alloy` ตัวเดียว (project `dormi-monitoring`, `m
 **ติดตั้งบน server (ครั้งแรก):**
 ```bash
 cd /root/dormi-edge && git pull
+# ★ ก่อนทำอย่างอื่น: ติดตั้งสคริปต์ backup ใหม่ (ไฟล์ที่ก๊อปไว้ — git pull ไม่อัปเดตให้) แล้วดึง image ที่ใช้ tar รูปสลิป
+install -m 755 deploy/backup/db-dump-to-spaces.sh /usr/local/bin/dormi-db-dump
+docker pull alpine:3.20
 cp deploy/monitoring/.env.example deploy/monitoring/.env && chmod 600 deploy/monitoring/.env
 #   เติม GRAFANA_PROM_URL / _USER, GRAFANA_LOKI_URL / _USER, GRAFANA_CLOUD_TOKEN (จาก Grafana Cloud, H2 ในแผน)
 bash deploy/monitoring/monitoring.sh setup     # สร้าง role dormi_monitor + รหัสสุ่ม → PG_MONITOR_DSN ใน .env (ไม่แสดงรหัส)
@@ -381,7 +390,9 @@ bash deploy/monitoring/monitoring.sh inspect   # อ่านอย่างเ�
 - edge `docker-compose.yml` เพิ่ม log rotation 10m×3 ให้ `edge`/`certbot` → มีผลเมื่อ recreate container edge ครั้งถัดไป (nginx หยุดไม่กี่วินาที)
 
 **ข้อควรรู้:**
-- `pg_stat_statements` (query ช้า top 20, ไม่ส่งข้อความ SQL) ต้องเปิดใน Postgres ก่อนถึงจะมีข้อมูล — `monitoring.sh inspect` แสดง `shared_preload_libraries` และว่ามี extension ใน DB แอปหรือยัง · ถ้า prod ยังไม่เปิด: alloy log `collector failed ... stat_statements` ทุกนาที และ Postgres เขียน ERROR + STATEMENT (~20 บรรทัด) ลง log ทุกนาที (ถูกปิดค่าแล้วแต่เพิ่มปริมาณ log) และ panel "query ช้า" = No data · การเปิดต้อง restart DB → ขออนุมัติแยก
+- `pg_stat_statements` (query ช้า top 20, ไม่ส่งข้อความ SQL) เป็น **opt-in**: ค่าเริ่มต้น `PG_STAT_STATEMENTS=off` ใน `deploy/monitoring/.env` (ไม่ตั้งก็ = off) → ไม่เปิด collector, ไม่มี error ทุกนาที, panel "query ช้า" = "ไม่มีข้อมูล" ตามปกติ · `monitoring.sh inspect` แสดง `shared_preload_libraries` + ว่ามี extension ใน DB แอปหรือยัง และพิมพ์บรรทัดแนะนำว่าควรตั้งเป็น `on` หรือยัง
+  - **วิธีเปิด** (ทำหลัง DB พร้อมเท่านั้น): ให้ `shared_preload_libraries` มี `pg_stat_statements` (ต้อง restart DB → ขออนุมัติแยก) → `CREATE EXTENSION pg_stat_statements;` ใน DB แอป → ตั้ง `PG_STAT_STATEMENTS=on` ใน `.env` → `bash deploy/monitoring/monitoring.sh up` (recreate alloy ให้อ่านค่าใหม่) → `inspect` ต้องบอก "ปกติ (DB พร้อม)"
+  - ห้ามตั้ง `on` ก่อน DB พร้อม: alloy จะ log `collector failed ... stat_statements` ทุกนาที และ Postgres เขียน ERROR + STATEMENT ลง log ทุกนาที (~30k บรรทัด/วันเข้า Loki)
 - **ความเสี่ยงที่ยอมรับ:** alloy mount `docker.sock` + `containerd.sock` = สิทธิ์ระดับ root ของเครื่อง (`:ro` บน socket ไม่ได้จำกัด API) — จำเป็นต่อ cAdvisor/log/discovery · ลดด้วย image pin, ไม่ publish port, `no-new-privileges` (socket-proxy ยังไม่ทำ)
 - อย่าให้ logrotate สร้างไฟล์ `/var/log/dormi-db-backup.log` ใหม่ (mount เป็นไฟล์เดียว) — ถ้าจะหมุนใช้ `copytruncate`
 - งบ series Grafana Cloud free 10k: ทดสอบในเครื่อง (13 container) ~1.4–1.6k · ระวัง histogram `dormi_http_request_duration_seconds` บน prod (route × status × bucket × replica) · `pg_settings_*` เก็บเฉพาะ max_connections ฯลฯ

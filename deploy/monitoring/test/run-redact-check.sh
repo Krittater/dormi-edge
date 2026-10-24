@@ -40,6 +40,7 @@ must '2001:db8:1::'
 must '\"uri\":\"/x\"'
 must '\"referer\":\"https://app.dormi-linkandrent.com/login\"'
 must 'feature=\"auth\"'
+must 'feature=\"roomTypes\"'   # feature camelCase ต้องได้เป็น label (regex รับ A-Z)
 must 'status=\"409\"'
 must 'entry="2026-10-24T20:30:01Z OK daily/x 123"'
 mustnot 'a@b.com'

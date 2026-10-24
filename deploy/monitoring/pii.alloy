@@ -57,7 +57,7 @@ declare "redact" {
 
 		stage.regex {
 			source     = "feature"
-			expression = `^(?P<feature_label>[a-z0-9_.-]{1,40})$`
+			expression = `^(?P<feature_label>[a-zA-Z0-9_.-]{1,40})$`
 		}
 
 		stage.regex {
