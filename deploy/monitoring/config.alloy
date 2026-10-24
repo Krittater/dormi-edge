@@ -1,0 +1,348 @@
+// ============================================================
+// Grafana Alloy — ตัวเก็บ metrics + log ของเครื่อง dormi แล้วส่งขึ้น Grafana Cloud (free)
+// ------------------------------------------------------------
+// รันผ่าน deploy/monitoring/monitoring.sh (compose project dormi-monitoring, container dormi-alloy)
+// secret ทั้งหมดมาจาก env (.env บน server, chmod 600) — ไฟล์นี้ไม่มีค่าลับ
+//
+//   metrics:  host (node) · container (cAdvisor) · Postgres · แอป (container ที่มี label dormi.metrics.port)
+//   logs:     stdout ของทุก container · /var/log/dormi-db-backup.log
+//   ★ log ทุกสายผ่าน pii.alloy (ตัดอีเมล/เบอร์/เลขบัตร/IP/query string) ก่อนถึง loki.write เสมอ
+//
+// งบ series: Grafana Cloud free = 10k series — คุม cardinality ไว้ที่ต้นทาง (ดู drop rule ท้ายไฟล์)
+// ============================================================
+
+logging {
+	level  = "warn"
+	format = "logfmt"
+}
+
+import.file "pii" {
+	filename = file.path_join(module_path, "pii.alloy")
+}
+
+// ─────────────────────────── ปลายทาง (Grafana Cloud) ───────────────────────────
+
+prometheus.remote_write "grafana" {
+	endpoint {
+		url = sys.env("GRAFANA_PROM_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_PROM_USER")
+			password = sys.env("GRAFANA_CLOUD_TOKEN")
+		}
+	}
+
+	external_labels = {
+		env  = "prod",
+		host = "dormi-linkandrent",
+	}
+}
+
+loki.write "grafana" {
+	endpoint {
+		url = sys.env("GRAFANA_LOKI_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_LOKI_USER")
+			password = sys.env("GRAFANA_CLOUD_TOKEN")
+		}
+	}
+
+	external_labels = {
+		env  = "prod",
+		host = "dormi-linkandrent",
+	}
+}
+
+// ─────────────────────────── metrics: host ───────────────────────────
+// /proc /sys / ของ host ถูก mount read-only ไว้ที่ /host/* (ดู docker-compose.yml)
+// network: node exporter อ่าน /proc/net ได้แค่ network namespace ของ container alloy เอง จึงไม่เปิด netdev
+//   ทราฟฟิกของเครื่องดูจาก cAdvisor: container_network_*{id="/"} (interface ของ host เช่น eth0)
+//   และต่อ container: container_network_*{name="dormi-edge"} (ต้องใช้ pid: host — ดู compose)
+
+prometheus.exporter.unix "host" {
+	procfs_path    = "/host/proc"
+	sysfs_path     = "/host/sys"
+	rootfs_path    = "/host/root"
+	udev_data_path = "/host/root/run/udev/data"
+
+	set_collectors = [
+		"cpu",
+		"diskstats",
+		"filesystem",
+		"loadavg",
+		"meminfo",
+		"pressure",
+		"stat",
+		"time",
+		"uname",
+		"vmstat",
+	]
+
+	filesystem {
+		fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|tmpfs)$"
+		mount_points_exclude = "^/(dev|proc|run|sys|var/lib/docker/.+|snap/.+)($|/)"
+	}
+}
+
+// exporter ตั้ง instance เป็น hostname ของ container (เปลี่ยนทุกครั้งที่สร้างใหม่) → ตรึงเป็นชื่อเครื่อง
+discovery.relabel "host" {
+	targets = prometheus.exporter.unix.host.targets
+
+	rule {
+		target_label = "instance"
+		replacement  = "dormi-linkandrent"
+	}
+}
+
+prometheus.scrape "host" {
+	targets         = discovery.relabel.host.output
+	scrape_interval = "60s"
+	forward_to      = [prometheus.relabel.budget.receiver]
+}
+
+// ─────────────────────────── metrics: container (cAdvisor) ───────────────────────────
+// store_container_labels = false: ห้ามแปลง label ทั้งหมดของ container เป็น metric label
+//   (cardinality + อาจมีค่าที่ไม่ควรออกนอกเครื่อง) — เอาแค่ชื่อ compose service/project
+
+prometheus.exporter.cadvisor "containers" {
+	docker_only                  = true
+	store_container_labels       = false
+	allowlisted_container_labels = ["com.docker.compose.service", "com.docker.compose.project"]
+
+	// ค่า default + ปิดเพิ่ม: percpu, sched, diskIO (ไม่ใช้ใน dashboard และกิน series)
+	//   และ disk (ขนาดไฟล์ต่อ container: ต้อง mount /var/lib/docker ทั้งก้อน — ดิสก์ดูจาก node_filesystem_* แทน)
+	disabled_metrics = [
+		"advtcp",
+		"cpu_topology",
+		"cpuset",
+		"hugetlb",
+		"memory_numa",
+		"process",
+		"referenced_memory",
+		"resctrl",
+		"tcp",
+		"udp",
+		"percpu",
+		"sched",
+		"diskIO",
+		"disk",
+	]
+}
+
+discovery.relabel "containers" {
+	targets = prometheus.exporter.cadvisor.containers.targets
+
+	rule {
+		target_label = "instance"
+		replacement  = "dormi-linkandrent"
+	}
+}
+
+prometheus.scrape "containers" {
+	targets         = discovery.relabel.containers.output
+	scrape_interval = "60s"
+	forward_to      = [prometheus.relabel.budget.receiver]
+}
+
+// ─────────────────────────── metrics: Postgres ───────────────────────────
+// PG_MONITOR_DSN สร้างโดย `monitoring.sh setup` (role dormi_monitor + pg_monitor, อ่านอย่างเดียว)
+// stat_statements: จำกัด top 20 และไม่เอาข้อความ SQL (include_query = false) — ข้อความ SQL อาจมีค่าจริง
+//   ต้องเปิด extension pg_stat_statements ใน Postgres ก่อนถึงจะมีข้อมูล (ยังไม่เปิดบน prod — ดู README)
+
+prometheus.exporter.postgres "db" {
+	data_source_names = [sys.env("PG_MONITOR_DSN")]
+
+	enabled_collectors = [
+		"database",
+		"locks",
+		"stat_bgwriter",
+		"stat_database",
+		"stat_statements",
+		"long_running_transactions",
+	]
+
+	stat_statements {
+		include_query = false
+		limit         = 20
+	}
+}
+
+discovery.relabel "db" {
+	targets = prometheus.exporter.postgres.db.targets
+
+	rule {
+		target_label = "instance"
+		replacement  = "dormi_postgres"
+	}
+}
+
+prometheus.scrape "db" {
+	targets         = discovery.relabel.db.output
+	scrape_interval = "60s"
+	forward_to      = [prometheus.relabel.budget.receiver]
+}
+
+// ─────────────────────────── metrics: แอป (label dormi.metrics.port) ───────────────────────────
+// backend (api ทุก replica + scheduler) ติด label dormi.metrics.port: "9464" → scrape http://<container>:<port>/metrics
+// ทุก container ที่มี label ถูก scrape แยกกัน และติด label container=<ชื่อ container>
+//   (api replica ที่ไม่ใช่ scheduler มี job gauge ค้างค่าตอน boot → alert ใช้ max() ข้าม instance)
+
+discovery.docker "containers" {
+	host             = "unix:///var/run/docker.sock"
+	refresh_interval = "30s"
+}
+
+discovery.relabel "app_metrics" {
+	targets = discovery.docker.containers.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_label_dormi_metrics_port"]
+		regex         = "[0-9]+"
+		action        = "keep"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/?(.+)"
+		target_label  = "container"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "service"
+	}
+
+	rule {
+		source_labels = ["container", "__meta_docker_container_label_dormi_metrics_port"]
+		separator     = ":"
+		target_label  = "__address__"
+	}
+
+	rule {
+		source_labels = ["container"]
+		target_label  = "instance"
+	}
+}
+
+prometheus.scrape "app" {
+	targets         = discovery.relabel.app_metrics.output
+	job_name        = "dormi-app"
+	scrape_interval = "30s"
+	metrics_path    = "/metrics"
+	forward_to      = [prometheus.relabel.budget.receiver]
+}
+
+// ─────────────────────────── งบ series: ทิ้งสิ่งที่ไม่ใช้ก่อนส่ง ───────────────────────────
+
+prometheus.relabel "budget" {
+	forward_to = [prometheus.remote_write.grafana.receiver]
+
+	// pg_settings_* มี ~300 ตัว — เก็บเฉพาะที่ dashboard/alert ใช้
+	rule {
+		source_labels = ["__name__"]
+		regex         = "pg_settings_(max_connections|shared_buffers_bytes|superuser_reserved_connections)"
+		target_label  = "__keep_pg_setting"
+		replacement   = "1"
+	}
+
+	rule {
+		source_labels = ["__name__", "__keep_pg_setting"]
+		regex         = "pg_settings_.+;"
+		action        = "drop"
+	}
+
+	rule {
+		regex  = "__keep_pg_setting"
+		action = "labeldrop"
+	}
+
+	// network ระดับเครื่อง (cAdvisor id="/") เก็บเฉพาะ interface จริง — ตัด bridge/veth ของ docker
+	rule {
+		source_labels = ["__name__", "interface"]
+		regex         = "container_network_.+;(veth|br-|docker).*"
+		action        = "drop"
+	}
+
+	// Go/process runtime ของ exporter เอง + histogram ภายในของ cAdvisor/node ที่ไม่ได้ใช้
+	rule {
+		source_labels = ["__name__"]
+		regex         = "(go|process|promhttp|postgres_exporter|node_scrape_collector|cadvisor_version|container_scrape_error|machine_(nvm|scrape)).*"
+		action        = "drop"
+	}
+}
+
+// ─────────────────────────── logs ───────────────────────────
+// stdout/stderr ของทุก container (ผ่าน docker API) → label container, service
+
+discovery.relabel "logs" {
+	targets = discovery.docker.containers.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/?(.+)"
+		target_label  = "container"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "service"
+	}
+
+	// แยก stdout/stderr เป็นคนละ stream — รวมกันแล้วเวลาสลับลำดับ Loki จะปฏิเสธ (entry too far behind)
+	rule {
+		source_labels = ["__meta_docker_container_log_stream"]
+		target_label  = "stream"
+	}
+}
+
+loki.source.docker "containers" {
+	host          = "unix:///var/run/docker.sock"
+	targets       = discovery.docker.containers.targets
+	relabel_rules = discovery.relabel.logs.rules
+	forward_to    = [loki.process.recent.receiver]
+}
+
+// log ของ cron backup (Task 6 เขียน OK / FAILED: / DONE <ts>) → alert "backup ไม่สำเร็จ"
+local.file_match "backup" {
+	path_targets = [{
+		"__path__" = "/var/log/dormi-db-backup.log",
+		"job"      = "db-backup",
+	}]
+}
+
+loki.source.file "backup" {
+	targets    = local.file_match.backup.targets
+	forward_to = [loki.process.recent.receiver]
+}
+
+// เวลาของ log + ตัดประวัติเก่า (สำคัญตอนเปิดครั้งแรก: source อ่านไฟล์/log container ย้อนหลังทั้งหมด)
+//   • log backup: ใช้เวลาจากต้นบรรทัด ไม่ใช่เวลาที่อ่าน — ไม่งั้นบรรทัด FAILED: เก่าเป็นเดือน
+//     จะเข้า Loki เป็น "ตอนนี้" แล้ว alert "backup ไม่สำเร็จ" ดังผิด
+//   • ทิ้ง log ที่เก่ากว่า 48 ชม. (Loki ปฏิเสธของเก่ากว่า ~7 วันอยู่แล้ว; 48 ชม. ยังครอบ DONE รอบล่าสุด)
+loki.process "recent" {
+	forward_to = [pii.redact.logs.receiver]
+
+	stage.match {
+		selector = `{job="db-backup"}`
+
+		stage.regex {
+			expression = `^(?P<backup_ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z) `
+		}
+
+		stage.timestamp {
+			source = "backup_ts"
+			format = "RFC3339"
+		}
+	}
+
+	stage.drop {
+		older_than          = "48h"
+		drop_counter_reason = "too_old"
+	}
+}
+
+// ★ จุดเดียวที่ log ออกนอกเครื่อง — ต้องผ่าน pii.redact ก่อนเสมอ
+pii.redact "logs" {
+	forward_to = [loki.write.grafana.receiver]
+}

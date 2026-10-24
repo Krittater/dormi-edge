@@ -320,6 +320,49 @@ docker exec -i dormi_postgres pg_restore -U dormi -d dormi_v2 --clean --if-exist
 - **cert:** `edge-landing` ออกได้หลัง DNS apex + www ชี้มาที่ edge เท่านั้น: `sh scripts/issue-cert.sh edge-landing` · ก่อนนั้น nginx ใช้ dummy cert
 - **runbook เต็ม** (setup ครั้งเดียว, ลำดับสลับ DNS, rollback, ปิด Vercel): `dormi/docs/pipeline/landing-to-vps/06-release.md`
 
+
+---
+
+## 10. Monitoring (Grafana Alloy → Grafana Cloud free) — `monitoring/`
+
+container `dormi-alloy` ตัวเดียว (project `dormi-monitoring`, `mem_limit 256m`, ไม่ publish port) เก็บแล้วส่งขึ้น Grafana Cloud:
+
+| เก็บอะไร | มาจาก | label หลัก |
+|---|---|---|
+| CPU / RAM / ดิสก์ / filesystem ของเครื่อง | `prometheus.exporter.unix` (mount `/proc` `/sys` `/` แบบ ro) | `job="integrations/unix"` |
+| RAM / CPU / network ต่อ container + network ของเครื่อง (`id="/"`) | `prometheus.exporter.cadvisor` (`pid: host`, `cgroup: host`, containerd.sock) | `name=<container>` |
+| Postgres (ขนาด DB, connection, lock, cache hit, top 20 query) | `prometheus.exporter.postgres` ผ่าน role `dormi_monitor` (`pg_monitor` อ่านอย่างเดียว) | `job="integrations/postgres"` |
+| metrics แอป `dormi_*` | ทุก container ที่มี label `dormi.metrics.port` → `http://<container>:9464/metrics` ทุก 30 วิ | `job="dormi-app"`, `container`, `service` |
+| log ทุก container (ทิ้งที่เก่ากว่า 48 ชม.) | docker API | `container`, `service`, `stream` (+ `feature`, `status` ของ log `[HttpRequest]`) |
+| log backup DB (เวลาจากต้นบรรทัด) | `/var/log/dormi-db-backup.log` | `job="db-backup"` |
+
+ทุก series/log ติด `env="prod"`, `host="dormi-linkandrent"`
+
+**ตัด PII ก่อนส่งออก** (`monitoring/pii.alloy` — ใช้ร่วมกับ test): รหัสสี ANSI ของ Nest · query string ใน `uri`/`referer` · อีเมล → `[email]` · เบอร์ไทย → `[phone]` · เลข 13 หลัก → `[national-id]` · IPv4 → octet สุดท้าย `.0` · IPv6 ใน `remote_addr`/`x_forwarded_for` → /48
+- แก้กติกาแล้วต้องรันตรวจก่อนเสมอ: `bash deploy/monitoring/test/run-redact-check.sh` (ต้องได้ `REDACT_CHECK_PASS`)
+- ตรวจ syntax: `docker run --rm -v "$PWD/deploy/monitoring:/m" grafana/alloy:v1.20.1 fmt /m/config.alloy`
+
+**ไฟล์:** `docker-compose.yml` · `config.alloy` · `pii.alloy` · `.env.example` · `sql/create-monitor-role.sql` · `monitoring.sh` · `test/`
+
+**ติดตั้งบน server (ครั้งแรก):**
+```bash
+cd /root/dormi-edge && git pull
+cp deploy/monitoring/.env.example deploy/monitoring/.env && chmod 600 deploy/monitoring/.env
+#   เติม GRAFANA_PROM_URL / _USER, GRAFANA_LOKI_URL / _USER, GRAFANA_CLOUD_TOKEN (จาก Grafana Cloud, H2 ในแผน)
+bash deploy/monitoring/monitoring.sh setup     # สร้าง role dormi_monitor + รหัสสุ่ม → PG_MONITOR_DSN ใน .env (ไม่แสดงรหัส)
+bash deploy/monitoring/monitoring.sh up        # ตรวจ .env ครบ → up → รอ healthy → แสดง RAM
+bash deploy/monitoring/monitoring.sh inspect   # อ่านอย่างเดียว: สถานะ/RAM/key ที่ขาด/role/log warn ล่าสุด
+```
+- **ปิด/rollback:** `monitoring.sh down` (ไม่กระทบแอป — แค่หยุดส่งข้อมูล) · หมุนรหัส DB monitor: `monitoring.sh setup` ซ้ำ (recreate alloy ให้เอง)
+- ทุกคำสั่งถือ `lib/deploy-lock.sh` เหมือน deploy อื่น
+- edge `docker-compose.yml` เพิ่ม log rotation 10m×3 ให้ `edge`/`certbot` → มีผลเมื่อ recreate container edge ครั้งถัดไป (nginx หยุดไม่กี่วินาที)
+
+**ข้อควรรู้:**
+- `pg_stat_statements` (query ช้า top 20, ไม่ส่งข้อความ SQL) ต้องเปิด extension ใน Postgres ก่อน (`shared_preload_libraries` = ต้อง restart DB → ขออนุมัติแยก) — ระหว่างนี้ alloy log `collector failed ... stat_statements` ทุกนาที และ panel "query ช้า" = No data
+- อย่าให้ logrotate สร้างไฟล์ `/var/log/dormi-db-backup.log` ใหม่ (mount เป็นไฟล์เดียว) — ถ้าจะหมุนใช้ `copytruncate`
+- งบ series Grafana Cloud free 10k: ทดสอบในเครื่อง (13 container) ~1.4–1.6k · ระวัง histogram `dormi_http_request_duration_seconds` บน prod (route × status × bucket × replica) · `pg_settings_*` เก็บเฉพาะ max_connections ฯลฯ
+- host network: node exporter ใน container เห็นแค่ network ของตัวเอง → ใช้ `container_network_*{id="/"}` ของ cAdvisor แทน
+
 ---
 
 *อัปเดตล่าสุด: 2026-07-12 · ครอบคลุม full-update flow + per-service deploy + edge architecture*

@@ -1,0 +1,18 @@
+import.file "pii" {
+	filename = file.path_join(module_path, "../pii.alloy")
+}
+
+local.file_match "sample" {
+	path_targets = [{"__path__" = file.path_join(module_path, "sample.log"), "job" = "redact-check"}]
+}
+
+loki.source.file "sample" {
+	targets    = local.file_match.sample.targets
+	forward_to = [pii.redact.out.receiver]
+}
+
+pii.redact "out" {
+	forward_to = [loki.echo.out.receiver]
+}
+
+loki.echo "out" { }

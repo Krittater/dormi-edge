@@ -1,0 +1,114 @@
+// ============================================================
+// pii.alloy — ตัดข้อมูลส่วนบุคคล (PII) ออกจาก log ก่อนส่งออกนอกเครื่อง
+// ------------------------------------------------------------
+// ใช้ร่วมกัน 2 ที่ (ห้ามก๊อปไปเขียนซ้ำ — แก้ที่นี่ที่เดียว):
+//   • config.alloy            ของจริงบน server (log ทุก container + log backup)
+//   • test/redact-check.alloy ตรวจด้วย loki.echo ก่อน deploy (test/run-redact-check.sh)
+//
+// ลำดับจริง:
+//   0. ลบรหัสสี ANSI (Nest logger ใส่สีเสมอแม้ไม่มี TTY: `\x1b[32m...\x1b[39m`) — ให้ regex ข้างล่างเจอข้อความจริง
+//   1. log แอป `... [HttpRequest] {json}` → ดึง JSON หลัง `[HttpRequest] ` แล้วแยก `t`, `feature`, `status`
+//      ทำ label เฉพาะ `feature` และ `status` และค่าต้องผ่าน regex เข้มก่อน (กัน label ระเบิด / PII ใน label)
+//      ไม่ทำ label จาก route / user / apartmentId — ค้นจากเนื้อ log ตอน query แทน
+//   2. ตัด query string ใน "uri" และ "referer" ของ nginx (query อาจมีอีเมล / token)
+//   3. อีเมล (รวมแบบ URL-encoded %40)                   → [email]
+//   4. เลข 13 หลัก (บัตรประชาชน มี/ไม่มีขีด)             → [national-id]  (ก่อนเบอร์ — กันเบอร์กินบางส่วนของเลขบัตร)
+//   5. เบอร์ไทย มือถือ 06/08/09 + บ้าน 02–07 (0x / +66)  → [phone]
+//   6. IPv4 ทุกตัวในบรรทัด                               → octet สุดท้ายเป็น 0
+//   7. IPv6 ใน remote_addr / x_forwarded_for             → เก็บ 3 กลุ่มแรก (/48) แล้วต่อ ::
+//
+// เลข 13 หลักที่ไม่ใช่บัตร (เช่น unix ms) และเลข 4 ส่วนแบบ IP ก็ถูกปิดด้วย — ตั้งใจ: ปิดเกินดีกว่าหลุด
+// regex เป็น RE2 (Go) · ใช้ raw string `...` จึงไม่ต้อง escape backslash ซ้ำ
+// ============================================================
+declare "redact" {
+	argument "forward_to" {
+		comment  = "ปลายทางของ log ที่ตัด PII แล้ว (list(LogsReceiver))"
+		optional = false
+	}
+
+	loki.process "pii" {
+		forward_to = argument.forward_to.value
+
+		// ── 0. รหัสสี ANSI ──
+		stage.replace {
+			expression = `(\x1b\[[0-9;]*[A-Za-z])`
+			replace    = ""
+		}
+
+		// ── 1. label จาก log แอป ──
+		stage.regex {
+			expression = `\[HttpRequest\] (?P<http_payload>\{.*\})\s*$`
+		}
+
+		stage.json {
+			source      = "http_payload"
+			expressions = {
+				t       = "",
+				feature = "",
+				status  = "",
+			}
+		}
+
+		stage.regex {
+			source     = "feature"
+			expression = `^(?P<feature_label>[a-z0-9_.-]{1,40})$`
+		}
+
+		stage.regex {
+			source     = "status"
+			expression = `^(?P<status_label>[1-5][0-9][0-9])$`
+		}
+
+		stage.labels {
+			values = {
+				feature = "feature_label",
+				status  = "status_label",
+			}
+		}
+
+		// ── 2. query string ของ nginx (escape=json → ค่าอาจมี \" อยู่ข้างใน) ──
+		stage.replace {
+			expression = `"uri":"(?:[^"\\?]|\\.)*(\?(?:[^"\\]|\\.)*)"`
+			replace    = ""
+		}
+
+		stage.replace {
+			expression = `"referer":"(?:[^"\\?]|\\.)*(\?(?:[^"\\]|\\.)*)"`
+			replace    = ""
+		}
+
+		// ── 3. อีเมล ──
+		stage.replace {
+			expression = `([A-Za-z0-9._%+-]+(?:@|%40)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})`
+			replace    = "[email]"
+		}
+
+		// ── 4. เลขบัตรประชาชน 13 หลัก ──
+		stage.replace {
+			expression = `\b([1-8][ -]?\d{4}[ -]?\d{5}[ -]?\d{2}[ -]?\d)\b`
+			replace    = "[national-id]"
+		}
+
+		// ── 5. เบอร์ไทย: 0812345678, 081-234-5678, +66 81 234 5678, 02-123-4567 ──
+		stage.replace {
+			expression = `((?:\+66[ -]?|\b0)(?:[689]\d|[2-7])[ -]?\d{3}[ -]?\d{4})\b`
+			replace    = "[phone]"
+		}
+
+		// ── 6. IPv4 → octet สุดท้ายเป็น 0 ──
+		stage.replace {
+			expression = `\b(?:\d{1,3}\.){3}(\d{1,3})\b`
+			replace    = "0"
+		}
+
+		// ── 7. IPv6 ใน remote_addr / x_forwarded_for → เก็บ /48 ──
+		stage.replace {
+			expression = `(?:"(?:remote_addr|x_forwarded_for)":"|, )[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{0,4}:[0-9A-Fa-f]{0,4}(:[0-9A-Fa-f:.]*)`
+			replace    = "::"
+		}
+	}
+
+	export "receiver" {
+		value = loki.process.pii.receiver
+	}
+}

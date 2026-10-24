@@ -1,3 +1,6 @@
 # สคริปต์ที่รันบน Linux ต้องเป็น LF เสมอ — CRLF (Windows) ทำให้ bash พังทั้งไฟล์
 *.sh   text eol=lf
 *.cron text eol=lf
+# Alloy config + test fixture ของ monitoring ต้องเป็น LF (fixture มีรหัสสี ANSI + ตรวจแบบตรงตัว)
+*.alloy text eol=lf
+deploy/monitoring/test/*.log text eol=lf

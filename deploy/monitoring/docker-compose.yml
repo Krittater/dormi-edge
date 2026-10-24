@@ -1,0 +1,75 @@
+# ============================================================
+# Monitoring — Grafana Alloy ตัวเดียว เก็บ metrics + log ของทั้งเครื่อง แล้วส่ง Grafana Cloud (free)
+# ------------------------------------------------------------
+# ใช้ผ่าน deploy/monitoring/monitoring.sh เท่านั้น (project dormi-monitoring):
+#   bash /root/dormi-edge/deploy/monitoring/monitoring.sh inspect | setup | up | down
+# ไม่ publish port: UI/API ของ alloy ฟังที่ 127.0.0.1 ภายใน container เท่านั้น
+# secret อยู่ใน .env ข้างไฟล์นี้ (chmod 600, ไม่อยู่ใน git) — ดู .env.example
+# ทุก mount ของ host เป็น read-only
+# ============================================================
+name: dormi-monitoring
+
+services:
+  alloy:
+    image: grafana/alloy:v1.20.1
+    container_name: dormi-alloy
+    restart: always
+    mem_limit: 256m
+    env_file: .env
+    environment:
+      # ให้ Go GC เก็บกวาดก่อนชนเพดาน mem_limit (กัน OOM-kill)
+      GOMEMLIMIT: 200MiB
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345
+      - --storage.path=/var/lib/alloy/data
+      # ไม่ส่งสถิติการใช้งานของ Alloy เองไปที่ Grafana (ข้อมูลออกนอกเครื่องเฉพาะที่เราตั้งใจ)
+      - --disable-reporting
+      - /etc/alloy/config.alloy
+    # cAdvisor ต้องเห็น cgroup ของทุก container (cgroup v2 + namespace ส่วนตัว = เห็นแค่ตัวเอง)
+    cgroup: host
+    # cAdvisor อ่าน network ของแต่ละ container ผ่าน /proc/<pid>/net ของ host — ไม่มี = ไม่มี container_network_*
+    # (alloy มี docker.sock อยู่แล้ว = สิทธิ์ระดับ root ของ host; pid: host ไม่ได้เพิ่มความเสี่ยงจากเดิม)
+    pid: host
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - ./pii.alloy:/etc/alloy/pii.alloy:ro
+      # positions ของ log + WAL ของ remote_write — restart แล้วไม่ส่ง log ซ้ำ/ไม่หาย
+      - alloy_data:/var/lib/alloy/data
+      # host metrics (prometheus.exporter.unix: procfs/sysfs/rootfs_path)
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+      # container metrics + log ทุก container + หา container ที่มี label dormi.metrics.port
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # cAdvisor รุ่นนี้ลงทะเบียน docker factory ผ่าน containerd client — ไม่มี socket = ไม่เห็น container ใดเลย
+      - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
+      # log ของ cron backup DB (monitoring.sh up สร้างไฟล์ให้ก่อน — ไม่งั้น docker สร้างเป็นโฟลเดอร์)
+      - /var/log/dormi-db-backup.log:/var/log/dormi-db-backup.log:ro
+    healthcheck:
+      # image ไม่มี curl/wget → ใช้ bash /dev/tcp ยิง /-/ready
+      test:
+        - CMD
+        - bash
+        - -c
+        - exec 3<>/dev/tcp/127.0.0.1/12345 && printf 'GET /-/ready HTTP/1.0\r\n\r\n' >&3 && grep -q '200 OK' <&3
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - dormi_network
+
+volumes:
+  alloy_data:
+    name: dormi_alloy_data
+
+networks:
+  dormi_network:
+    external: true
