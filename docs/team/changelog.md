@@ -2,6 +2,8 @@
 
 เรียงใหม่ → เก่า
 
+- 2026-10-24 · developer · rebase ทับ origin/main a77ea80: alert "งานทุกนาทีหยุดรัน" เพิ่มงานใหม่ `user.signup-outbox` (ส่งการสมัครใหม่ไประบบแอดมิน ทุกนาทีบน scheduler — backend เป็นผู้ห่อ `JobRunService.track`) · README อัปเดตรายการงาน · ไม่เพิ่ม metric ใหม่ (expected-metrics.txt ไม่เปลี่ยน)
+
 - 2026-10-24 · developer · PII fix I1 (review): `pii.alloy` stage 3c ปิด **ทั้งบรรทัด** ของ nginx error log (รูปแบบ `YYYY/MM/DD hh:mm:ss [`): ชุด `\xHH`/`%XX` → `[enc]`, ไม่ใช่ ASCII → `[text]` — กัน `open() "/var/www/certbot/.well-known/acme-challenge/<path ถอดรหัสแล้ว>" failed` (ACME location บนพอร์ต 80) · บรรทัด Nest ไม่โดน (มี negative test)
 
 - 2026-10-24 · developer · PII fix B1 (tester): `pii.alloy` stage 3b ปิดข้อความอิสระใน **path** ของ nginx (`uri`/`referer` JSON + `request:`/`upstream:`/`referrer:` ของ error log): ชุด `%XX` → `[enc]`, ไม่ใช่ ASCII → `[text]` (id/uuid ASCII คงไว้) · deploy: `git pull` + `monitoring.sh up` (restart alloy) เท่านั้น · ยังไม่ครอบข้อความ error ที่ฝัง path ในช่องอื่น เช่น `open() "/usr/share/nginx/html/<uri>" failed`

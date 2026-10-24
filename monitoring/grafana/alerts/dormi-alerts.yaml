@@ -155,7 +155,7 @@ groups:
               # วินาทีนับจากรอบล่าสุดที่รันจบ (สำเร็จหรือล้มก็นับ) · max by (job) ข้าม replica
               # ★ last_run ถูกตั้งเฉพาะใน container ที่รัน scheduler — scheduler ดับ/ค้างจนเข้าถึงไม่ได้ = series หายไป
               #   (ไม่ใช่ค่าเก่าค้าง) จึงต้อง noDataState: Alerting ไม่งั้นเงียบตอนที่ควรดังที่สุด
-              expr: 'time() - max by (job) (dormi_job_last_run_timestamp_seconds{job=~"billing.utility-calc|slip.retry"})'
+              expr: 'time() - max by (job) (dormi_job_last_run_timestamp_seconds{job=~"billing.utility-calc|slip.retry|user.signup-outbox"})'
               instant: true
               range: false
               intervalMs: 1000
@@ -167,7 +167,7 @@ groups:
         for: 2m
         annotations:
           summary: 'งานทุกนาทีหยุดรัน: {{ if $labels.job }}{{ $labels.job }}{{ else }}ไม่พบข้อมูลของงาน (scheduler อาจดับ){{ end }}'
-          description: 'งานทุกนาที (คำนวณค่าน้ำไฟ/ลองตรวจสลิปซ้ำ) ไม่รันเกิน 10 นาที หรือไม่มีข้อมูลของงานเลย — scheduler อาจค้าง/ดับ หรือ container api ล้ม · ตรวจ container ที่รัน scheduler · (หลัง deploy ใหม่ alert นี้อาจดังได้ 2–3 นาทีแรกจนกว่า scheduler จะรันรอบแรก)'
+          description: 'งานทุกนาที (คำนวณค่าน้ำไฟ/ลองตรวจสลิปซ้ำ/ส่งการสมัครใหม่ไประบบแอดมิน) ไม่รันเกิน 10 นาที หรือไม่มีข้อมูลของงานเลย — scheduler อาจค้าง/ดับ หรือ container api ล้ม · ตรวจ container ที่รัน scheduler · (หลัง deploy ใหม่ alert นี้อาจดังได้ 2–3 นาทีแรกจนกว่า scheduler จะรันรอบแรก)'
         labels: { severity: critical, team: dormi }
 
       - uid: dormi-collector-down
