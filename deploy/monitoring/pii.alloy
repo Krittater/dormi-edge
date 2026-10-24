@@ -19,6 +19,8 @@
 //      · ★ log_statement: `LOG:  statement|execute|bind|parse|duration …` และ `DETAIL:  parameters: …` → ทิ้งทั้งบรรทัด
 //      (stage นี้จำกัดเฉพาะ container ชื่อมี postgres — test มี negative case ว่า container อื่นไม่โดน)
 //   3. อีเมล (รวมแบบ URL-encoded %40)                   → [email]
+//   3b. ข้อความอิสระใน path ของ URL (nginx JSON uri/referer · error log request:/upstream:/referrer:)
+//      percent-encoded ติดกัน → [enc] · ตัวอักษรที่ไม่ใช่ ASCII → [text] · ASCII id/สแลชคงไว้
 //   4. เลข 13 หลัก (บัตรประชาชน มี/ไม่มีขีด)             → [national-id]  (ก่อนเบอร์ — กันเบอร์กินบางส่วนของเลขบัตร)
 //   5. เบอร์ไทย มือถือ 06/08/09 + บ้าน 02–07 (0x / +66 / 66) → [phone]
 //   6. IPv4 ทุกตัวในบรรทัด (รวม client: ของ nginx)        → octet สุดท้ายเป็น 0
@@ -167,6 +169,39 @@ declare "redact" {
 		stage.replace {
 			expression = `([A-Za-z0-9._%+-]+(?:@|%40)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})`
 			replace    = "[email]"
+		}
+
+		// ── 3b. ข้อความอิสระใน "path" ของ URL (ชื่อไทย ฯลฯ ที่ผู้ใช้/สแกนเนอร์พิมพ์เอง) ──
+		// route จริงของ Dormi มีแต่ id/code ใน path → ปิดทุกอย่างที่ไม่ใช่ ASCII ธรรมดา:
+		//   • ชุด percent-encoded ติดกัน (%E0%B8%A0…)  → [enc]
+		//   • ตัวอักษรที่ไม่ใช่ ASCII ดิบ (ไทย ฯลฯ)       → [text]
+		// ASCII id/uuid/สแลชคงไว้ · ทำหลัง stage อีเมล (3) เพื่อให้ `a%40b.com` ได้ [email] ก่อน
+		// ใช้ template (regexReplaceAllLiteral บนค่าที่จับได้) เพราะ regex ตัวเดียวแทนหลายชุดในค่าเดียวไม่ได้
+		// ช่องที่ครอบ: nginx JSON "uri"/"referer" · error log request:/upstream:/referrer:
+		// (error log ของ nginx พิมพ์ไบต์ที่ไม่ใช่ ASCII เป็น \xHH จึงรับรูปนั้นด้วย)
+		stage.replace {
+			expression = `"uri":"((?:[^"\\]|\\.)*)"`
+			replace    = `{{ regexReplaceAllLiteral "[^\\x00-\\x7F]+" (regexReplaceAllLiteral "(?:%[0-9A-Fa-f]{2})+" .Value "[enc]") "[text]" }}`
+		}
+
+		stage.replace {
+			expression = `"referer":"((?:[^"\\]|\\.)*)"`
+			replace    = `{{ regexReplaceAllLiteral "[^\\x00-\\x7F]+" (regexReplaceAllLiteral "(?:%[0-9A-Fa-f]{2})+" .Value "[enc]") "[text]" }}`
+		}
+
+		stage.replace {
+			expression = `request: "\S+ ([^"]*?)(?: HTTP/[0-9.]+)?"`
+			replace    = `{{ regexReplaceAllLiteral "[^\\x00-\\x7F]+" (regexReplaceAllLiteral "(?:%[0-9A-Fa-f]{2}|\\\\x[0-9A-Fa-f]{2})+" .Value "[enc]") "[text]" }}`
+		}
+
+		stage.replace {
+			expression = `upstream: "([^"]*)"`
+			replace    = `{{ regexReplaceAllLiteral "[^\\x00-\\x7F]+" (regexReplaceAllLiteral "(?:%[0-9A-Fa-f]{2}|\\\\x[0-9A-Fa-f]{2})+" .Value "[enc]") "[text]" }}`
+		}
+
+		stage.replace {
+			expression = `referrer: "([^"]*)"`
+			replace    = `{{ regexReplaceAllLiteral "[^\\x00-\\x7F]+" (regexReplaceAllLiteral "(?:%[0-9A-Fa-f]{2}|\\\\x[0-9A-Fa-f]{2})+" .Value "[enc]") "[text]" }}`
 		}
 
 		// ── 4. เลขบัตรประชาชน 13 หลัก ──
