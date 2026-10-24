@@ -9,8 +9,11 @@
 # datasource uid: grafanacloud-prom / grafanacloud-logs (uid มาตรฐานของ Grafana Cloud)
 #
 # ★ กติกาที่ตกลงไว้
-#   • alert งาน (job) ใช้ max() ข้าม instance — replica ของ api ที่ไม่ใช่ scheduler ค้างค่า gauge ตอน boot
-#     ถ้าไม่ใช้ max จะเตือนผิด
+#   • alert งาน (job) ใช้ max() ข้าม instance — replica ของ api ที่ไม่ใช่ scheduler ค้างค่า gauge
+#     last_success ตอน boot (โหลดจาก DB) ถ้าไม่ใช้ max จะเตือนผิด · ส่วน last_run มีเฉพาะ replica ที่รัน
+#     scheduler จริง — scheduler หยุด = series last_run หายไปเลย (ไม่ใช่ค่าเก่า) จึงต้องให้ "ไม่มีข้อมูล" = ดัง
+#   • "ล้มครั้งแรก" ของงานดูจาก last_run > last_success (ไม่ใช้ increase() ของ counter ที่เริ่มที่ 1 หลัง restart)
+#   • ลบ rule ออกจากไฟล์นี้ไม่ได้ลบใน Grafana — import.sh สร้าง/อัปเดตเท่านั้น ต้องลบเองใน UI
 #   • job label ของ dormi_job_* ต้องเป็น job="billing.daily" ฯลฯ → config.alloy ต้องตั้ง honor_labels = true
 #     ที่ prometheus.scrape "app" (ไม่งั้น Alloy เปลี่ยนชื่อเป็น exported_job) — ดู monitoring/README.md
 #   • ไม่มี alert จาก log ของ Postgres (ถ้าจะเพิ่ม ต้องตัด error ของ pg_stat_statements ออก — prod อาจยังไม่มี extension)
@@ -48,7 +51,7 @@ groups:
         execErrState: Error
         for: 0s
         annotations:
-          summary: 'เว็บ/API ล่ม: {{ $labels.instance }}'
+          summary: 'เว็บ/API ล่ม: {{ if $labels.instance }}{{ $labels.instance }}{{ else }}ไม่มีข้อมูลจาก Synthetic check{{ end }}'
           description: 'ตรวจจากภายนอกไม่ผ่านติดกัน 2 รอบ (ประมาณ 4 นาที) — ลูกค้าอาจเข้าใช้งานไม่ได้ · ถ้า alert นี้ขึ้นว่า "ไม่มีข้อมูล" แปลว่า Synthetic check หยุดทำงานหรือถูกลบ · ดูแถว "ระบบปกติไหม" ใน dashboard Dormi ภาพรวม'
         labels: { severity: critical, team: dormi }
 
@@ -120,9 +123,11 @@ groups:
             model:
               refId: A
               datasource: { type: prometheus, uid: grafanacloud-prom }
-              # (1) ไม่สำเร็จมานานกว่า 26 ชม. (93600 วินาที) หรือ (2) มีรอบที่ล้มใน 1 ชม.ล่าสุด
-              # max by (job) = เอาค่าของ replica ที่รัน scheduler (replica อื่นค้างค่าตอน boot)
-              expr: '((time() - max by (job) (dormi_job_last_success_timestamp_seconds{job="billing.daily"})) > 93600) or (sum by (job) (increase(dormi_job_runs_total{job="billing.daily",status="failed"}[1h])) > 0)'
+              # (1) ไม่สำเร็จมานานกว่า 26 ชม. (93600 วินาที) หรือ (2) รอบที่รันล่าสุดใหม่กว่ารอบที่สำเร็จล่าสุด = รอบล่าสุดล้ม
+              #   (2) ใช้เทียบ timestamp แทน increase(counter): counter ของ status="failed" เริ่มที่ 1 ตอนล้มครั้งแรก
+              #   (increase() = 0) และรีเซ็ตเมื่อ restart · success ตั้ง last_run = last_success ค่าเดียวกัน จึงเป็น > ก็ต่อเมื่อล้มจริง
+              # max by (job) = เอาค่าสูงสุดข้าม replica (last_success โหลดจาก DB ทุก replica · last_run มีแต่ตัวที่รัน scheduler)
+              expr: '((time() - max by (job) (dormi_job_last_success_timestamp_seconds{job="billing.daily"})) > 93600) or (max by (job) (dormi_job_last_run_timestamp_seconds{job="billing.daily"}) > max by (job) (dormi_job_last_success_timestamp_seconds{job="billing.daily"}))'
               instant: true
               range: false
               intervalMs: 1000
@@ -148,6 +153,8 @@ groups:
               refId: A
               datasource: { type: prometheus, uid: grafanacloud-prom }
               # วินาทีนับจากรอบล่าสุดที่รันจบ (สำเร็จหรือล้มก็นับ) · max by (job) ข้าม replica
+              # ★ last_run ถูกตั้งเฉพาะใน container ที่รัน scheduler — scheduler ดับ/ค้างจนเข้าถึงไม่ได้ = series หายไป
+              #   (ไม่ใช่ค่าเก่าค้าง) จึงต้อง noDataState: Alerting ไม่งั้นเงียบตอนที่ควรดังที่สุด
               expr: 'time() - max by (job) (dormi_job_last_run_timestamp_seconds{job=~"billing.utility-calc|slip.retry"})'
               instant: true
               range: false
@@ -155,12 +162,12 @@ groups:
               maxDataPoints: 43200
           - { refId: B, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: B, type: reduce, expression: A, reducer: last, settings: { mode: dropNN }, datasource: { type: __expr__, uid: __expr__ } } }
           - { refId: C, datasourceUid: __expr__, relativeTimeRange: { from: 0, to: 0 }, model: { refId: C, type: threshold, expression: B, conditions: [{ evaluator: { type: gt, params: [600] }, operator: { type: and }, query: { params: [C] }, reducer: { type: last, params: [] }, type: query }], datasource: { type: __expr__, uid: __expr__ } } }
-        noDataState: OK
+        noDataState: Alerting
         execErrState: Error
         for: 2m
         annotations:
-          summary: 'งานทุกนาทีหยุดรัน: {{ $labels.job }}'
-          description: 'งาน {{ $labels.job }} (คำนวณค่าน้ำไฟ/ลองตรวจสลิปซ้ำ) ไม่รันเกิน 10 นาที — scheduler อาจค้างหรือ container api ล้ม · ตรวจ container ที่รัน scheduler'
+          summary: 'งานทุกนาทีหยุดรัน: {{ if $labels.job }}{{ $labels.job }}{{ else }}ไม่พบข้อมูลของงาน (scheduler อาจดับ){{ end }}'
+          description: 'งานทุกนาที (คำนวณค่าน้ำไฟ/ลองตรวจสลิปซ้ำ) ไม่รันเกิน 10 นาที หรือไม่มีข้อมูลของงานเลย — scheduler อาจค้าง/ดับ หรือ container api ล้ม · ตรวจ container ที่รัน scheduler · (หลัง deploy ใหม่ alert นี้อาจดังได้ 2–3 นาทีแรกจนกว่า scheduler จะรันรอบแรก)'
         labels: { severity: critical, team: dormi }
 
       - uid: dormi-collector-down

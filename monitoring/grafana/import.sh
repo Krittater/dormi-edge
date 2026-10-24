@@ -47,11 +47,11 @@ if [[ "$DRY_RUN" != "1" ]]; then
   [[ -n "${GRAFANA_URL:-}" ]] || die "ต้องตั้ง GRAFANA_URL (เช่น https://dormi.grafana.net)"
   [[ -n "${GRAFANA_SA_TOKEN:-}" ]] || die "ต้องตั้ง GRAFANA_SA_TOKEN (token ของ service account dormi-provisioner)"
   GRAFANA_URL="${GRAFANA_URL%/}"
-  case "$GRAFANA_URL" in
-    https://*) ;;
-    http://localhost*|http://127.0.0.1*) ;;
-    *) die "GRAFANA_URL ต้องขึ้นต้นด้วย https:// (ยกเว้น localhost)" ;;
-  esac
+  # http ธรรมดาอนุญาตเฉพาะ localhost / 127.0.0.1 (มี :port ได้) เท่านั้น — ห้ามเป็น http://localhost.evil.example ฯลฯ
+  if [[ "$GRAFANA_URL" =~ ^https://[^/@[:space:]]+(/.*)?$ ]]; then :
+  elif [[ "$GRAFANA_URL" =~ ^http://(localhost|127\.0\.0\.1)(:[0-9]+)?(/.*)?$ ]]; then :
+  else die "GRAFANA_URL ต้องเป็น https://<โฮสต์> (หรือ http://localhost[:port] / http://127.0.0.1[:port] เพื่อทดสอบในเครื่อง)"
+  fi
   # token ใส่ใน config ของ curl ที่ส่งทาง stdin → ห้ามมีอักขระที่ทำให้ config เพี้ยน
   [[ "$GRAFANA_SA_TOKEN" =~ ^[A-Za-z0-9_.=+/-]+$ ]] || die "GRAFANA_SA_TOKEN มีอักขระที่ไม่คาดคิด (ตรวจว่าคัดลอกมาครบ ไม่มีช่องว่าง/ขึ้นบรรทัดใหม่)"
 fi

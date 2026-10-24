@@ -11,7 +11,7 @@
   "version": 1,
   "editable": true,
   "graphTooltip": 1,
-  "refresh": "1m",
+  "refresh": "5m",
   "time": {
     "from": "now-24h",
     "to": "now"
@@ -478,7 +478,7 @@
       "id": 9,
       "type": "table",
       "title": "งานเบื้องหลังทุกตัว",
-      "description": "แต่ละแถวคือ 1 งานของระบบ (ออกบิล, ตรวจสลิป ฯลฯ) · 'สำเร็จล่าสุด' ควรอยู่ในรอบปกติของงาน (ออกบิลรายวัน < 26 ชม., งานทุกนาที < 10 นาที = 0.2 ชม.) · 'ล้มใน 7 วัน' ควรเป็น 0 · งาน boot.* รันเฉพาะตอนระบบเริ่มทำงาน จึงเก่าได้เป็นปกติ",
+      "description": "แต่ละแถวคือ 1 งานของระบบ (ออกบิล, ตรวจสลิป ฯลฯ) · 'สำเร็จล่าสุด' ควรอยู่ในรอบปกติของงาน (ออกบิลรายวัน < 26 ชม., งานทุกนาที < 10 นาที = 0.2 ชม.) · 'รอบล่าสุดล้มไหม' = ล้ม เมื่อรอบที่รันล่าสุดใหม่กว่ารอบที่สำเร็จล่าสุด (เชื่อถือได้ ไม่ขึ้นกับการ restart) · 'ล้ม (นับตั้งแต่ restart)' เป็นตัวนับที่รีเซ็ตเมื่อระบบ restart และไม่นับครั้งแรกที่งานเริ่มล้ม — ใช้ดูประกอบเท่านั้น · งาน boot.* รันเฉพาะตอนระบบเริ่มทำงาน จึงเก่าได้เป็นปกติ",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -522,6 +522,17 @@
           "instant": true,
           "range": false,
           "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "max by (job) (dormi_job_last_run_timestamp_seconds) > bool max by (job) (dormi_job_last_success_timestamp_seconds)",
+          "instant": true,
+          "range": false,
+          "format": "table"
         }
       ],
       "fieldConfig": {
@@ -539,12 +550,66 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "ล้มใน 7 วัน (ครั้ง)"
+              "options": "ล้ม (นับตั้งแต่ restart, ครั้ง)"
             },
             "properties": [
               {
                 "id": "decimals",
                 "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "รอบล่าสุดล้มไหม"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "ปกติ",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "ล้ม",
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
               },
               {
                 "id": "custom.cellOptions",
@@ -629,14 +694,16 @@
             "renameByName": {
               "job": "งาน",
               "Value #A": "สำเร็จล่าสุด (ชม.ก่อน)",
-              "Value #B": "ล้มใน 7 วัน (ครั้ง)",
-              "Value #C": "รันล่าสุด (ชม.ก่อน)"
+              "Value #B": "ล้ม (นับตั้งแต่ restart, ครั้ง)",
+              "Value #C": "รันล่าสุด (ชม.ก่อน)",
+              "Value #D": "รอบล่าสุดล้มไหม"
             },
             "indexByName": {
               "job": 0,
               "Value #A": 1,
               "Value #C": 2,
-              "Value #B": 3
+              "Value #D": 3,
+              "Value #B": 4
             }
           }
         }
@@ -706,7 +773,7 @@
       "id": 11,
       "type": "stat",
       "title": "backup ล้มใน 7 วัน (ครั้ง)",
-      "description": "จำนวนบรรทัด FAILED: ใน log backup 7 วันล่าสุด · ควรเป็น 0",
+      "description": "จำนวนบรรทัด FAILED: ใน log backup 7 วันล่าสุด · ควรเป็น 0 · 'ไม่มีข้อมูล' = ไม่พบบรรทัด FAILED: (หรือยังไม่มี log backup ส่งมา) ไม่ได้แปลว่าเป็น 0 เสมอไป — ดูช่อง 'backup ล่าสุดเมื่อ' ประกอบ",
       "datasource": {
         "type": "loki",
         "uid": "grafanacloud-logs"
@@ -746,7 +813,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "noValue": "0",
+          "noValue": "ไม่มีข้อมูล",
           "decimals": 0
         },
         "overrides": []
@@ -769,8 +836,8 @@
     {
       "id": 12,
       "type": "timeseries",
-      "title": "งานที่ล้ม (ต่อชั่วโมง)",
-      "description": "แท่งที่โผล่ขึ้นมา = มีงานล้มในชั่วโมงนั้น · ปกติไม่ควรมีแท่งเลย",
+      "title": "รอบล่าสุดของงานล้มไหม (1 = ล้ม)",
+      "description": "เส้นขึ้นเป็น 1 = งานนั้นรันรอบล่าสุดแล้วล้ม (รอบที่รันล่าสุดใหม่กว่ารอบที่สำเร็จล่าสุด) · กลับเป็น 0 เมื่อสำเร็จอีกครั้ง · ปกติเป็น 0 ตลอด",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -788,7 +855,7 @@
             "type": "prometheus",
             "uid": "grafanacloud-prom"
           },
-          "expr": "sum by (job) (increase(dormi_job_runs_total{status=\"failed\"}[1h]))",
+          "expr": "max by (job) (dormi_job_last_run_timestamp_seconds) > bool max by (job) (dormi_job_last_success_timestamp_seconds)",
           "instant": false,
           "range": true,
           "legendFormat": "{{job}}"
@@ -797,12 +864,15 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "min": 0,
+          "max": 1,
           "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 60,
+            "lineWidth": 2,
+            "fillOpacity": 20,
             "showPoints": "never",
             "spanNulls": true,
-            "drawStyle": "bars"
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter"
           }
         },
         "overrides": []

@@ -186,7 +186,8 @@ prometheus.scrape "db" {
 // ─────────────────────────── metrics: แอป (label dormi.metrics.port) ───────────────────────────
 // backend (api ทุก replica + scheduler) ติด label dormi.metrics.port: "9464" → scrape http://<container>:<port>/metrics
 // ทุก container ที่มี label ถูก scrape แยกกัน และติด label container=<ชื่อ container>
-//   (api replica ที่ไม่ใช่ scheduler มี job gauge ค้างค่าตอน boot → alert ใช้ max() ข้าม instance)
+//   (api replica ที่ไม่ใช่ scheduler โหลด last_success จาก DB ตอน boot แล้วค้างค่านั้น → alert ใช้ max() ข้าม instance
+//    ส่วน last_run ตั้งเฉพาะ container ที่รัน scheduler จริง — scheduler ดับ series จะหายไปเลย ไม่ใช่ค่าเก่า)
 
 discovery.docker "containers" {
 	host             = "unix:///var/run/docker.sock"
