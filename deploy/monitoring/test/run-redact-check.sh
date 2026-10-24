@@ -18,7 +18,7 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$NAME" -v "$MOUNT:/m:ro" "$IMAGE" \
   run --storage.path=/tmp/alloy /m/test/redact-check.alloy >/dev/null
 
 # บรรทัด log_statement ของ Postgres (statement/execute/bind/parse/duration + DETAIL: parameters) ถูกทิ้งทั้งบรรทัดใน pii.alloy → ไม่ถึง loki.echo
-DROPPED=$(grep -cE 'LOG:  (statement|execute|bind|parse|duration)|DETAIL:  parameters:' "$HERE/test/sample-postgres.log" || true)
+DROPPED=$(grep -cE 'LOG:  ([0-9A-Z]{5}: )?(statement|execute|bind|parse|duration)|DETAIL:  ([0-9A-Z]{5}: )?parameters:' "$HERE/test/sample-postgres.log" || true)
 EXPECTED=$(( $(cat "$HERE/test/sample.log" "$HERE/test/sample-postgres.log" | grep -c .) - DROPPED ))
 out=""
 for _ in $(seq 1 30); do
@@ -114,13 +114,20 @@ mustnot 'durbindsecret'
 mustnot 'durparsesecret'
 mustnot 'multilinesecret'
 mustnot 'SET note'
+# log_error_verbosity=verbose พิมพ์ SQLSTATE นำหน้า (`LOG:  00000: statement:`) → ต้องถูกทิ้งเช่นกัน
+mustnot 'verbosestmtsecret'
+mustnot 'verboseexecsecret'
+mustnot 'verboseparamsecret'
+mustnot 'verbosedursecret'
 # บรรทัดต่อ (tab) ของ statement ที่ถูกทิ้ง ยังต้องถูกปิดเป็น [continued] (ดู mustnot 'SET note' ข้างบน)
-# negative: log ปกติของ Postgres ต้องยังมาถึง (ไม่ใช่ทิ้งทั้ง container) — LOG ที่ไม่ใช่ SQL + ERROR (SQLSTATE class คงอยู่)
+# negative: log ปกติของ Postgres ต้องยังมาถึง (ไม่ใช่ทิ้งทั้ง container) — LOG ที่ไม่ใช่ SQL + ข้อความ ERROR (ชนิด error ยังอ่านออก)
 must 'LOG:  checkpoint starting: time'
 must 'ERROR:  null value in column \"amount\" of relation \"incomes\" violates not-null constraint'
 # negative: stage ของ Postgres ต้องไม่แตะ container อื่น
 must '[Audit] STATEMENT:  keep-me-statement'
 must 'entry="\tkeep-me-tab: \"keep-me-quoted\""'
+# negative: กฎทิ้ง log_statement ต้องจำกัดเฉพาะ container postgres (บรรทัดนี้อยู่ใน sample.log ที่ไม่มี label container)
+must 'keep-me-nonpg'
 
 if [[ $fail -ne 0 ]]; then
   echo REDACT_CHECK_FAIL

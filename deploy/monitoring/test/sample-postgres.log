@@ -27,3 +27,7 @@
 	   SET note = 'multilinesecret'
 2026-10-24 01:00:00.133 UTC [133] LOG:  checkpoint starting: time
 2026-10-24 01:00:00.134 UTC [134] ERROR:  null value in column "amount" of relation "incomes" violates not-null constraint
+2026-10-24 01:00:00.140 UTC [140] LOG:  00000: statement: UPDATE users SET note = 'verbosestmtsecret'
+2026-10-24 01:00:00.141 UTC [141] LOG:  00000: execute <unnamed>: UPDATE users SET note = 'verboseexecsecret' WHERE id = $1
+2026-10-24 01:00:00.141 UTC [141] DETAIL:  00000: parameters: $1 = 'verboseparamsecret'
+2026-10-24 01:00:00.142 UTC [142] LOG:  00000: duration: 0.5 ms  bind <unnamed>: UPDATE users SET note = 'verbosedursecret'

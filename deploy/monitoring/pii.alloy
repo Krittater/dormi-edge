@@ -110,8 +110,10 @@ declare "redact" {
 			// ทิ้งทั้งบรรทัด (ไม่ mask): บรรทัดที่ปิดค่าแล้วเหลือแค่ "มี SQL รัน" ไม่มีประโยชน์ต่อ dashboard/alert
 			// (อัตรา transaction ได้จาก postgres exporter อยู่แล้ว) และการทิ้งไม่พึ่ง regex ปิดค่าให้ครบทุกรูปแบบ
 			// ดูสด ๆ บน server: docker logs dormi_postgres · ERROR:/FATAL:/WARNING: ไม่ถูกแตะ (ยังวิเคราะห์ error ได้)
+			// สมมติฐาน: Postgres ใช้ข้อความอังกฤษ (lc_messages ค่าเริ่มต้นของ image) — เปลี่ยน locale แล้วคำว่า LOG:/DETAIL:/statement จะไม่ตรง กฎนี้ไม่ทำงาน
+			// log_error_verbosity=verbose (พิมพ์ SQLSTATE `LOG:  00000: statement:`) รองรับแล้วด้วยส่วน optional `[0-9A-Z]{5}: `
 			stage.drop {
-				expression          = `(?:LOG:  (?:statement: |(?:execute|bind|parse) |duration: )|DETAIL:  parameters: )`
+				expression          = `(?:LOG:  (?:[0-9A-Z]{5}: )?(?:statement: |(?:execute|bind|parse) |duration: )|DETAIL:  (?:[0-9A-Z]{5}: )?parameters: )`
 				drop_counter_reason = "pg_log_statement"
 			}
 
