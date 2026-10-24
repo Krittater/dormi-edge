@@ -19,3 +19,10 @@
 - `loki.source.docker`: stdout+stderr ใน stream เดียวเวลาสลับลำดับ → Loki ตอบ `entry too far behind` → แยกด้วย label `stream`
 - Loki local (`local-config.yaml`) query ingester แค่ 3 ชม. ล่าสุด (`query_ingesters_within`) → log ที่ timestamp เก่ากว่า 3 ชม. "หาย" ตอน query ในเครื่อง ไม่ใช่ pipeline ทิ้ง
 - `process_resident_memory_bytes` ของ alloy ไม่ใช่ตัววัด OOM — ดู `docker stats` / `container_memory_working_set_bytes{name="dormi-alloy"}`
+
+## Backup (`deploy/backup/`)
+- volume รูปสลิปจริงบน prod = `dormi_files_data` (ไม่ใช่ `docker_dormi_files_data` ที่ว่าง) · `docker run -v <ชื่อที่ไม่มี>` สร้าง volume ว่างเงียบ ๆ → สคริปต์ตรวจ `docker volume inspect` ก่อนเสมอ
+- `upload <file> <key เต็ม>` — key ต้องมี prefix เอง (`daily/…` หรือ `files/…`) · lifecycle 14 วันของ bucket ครอบทั้ง bucket จึงไม่ต้องอยู่ใต้ `daily/`
+- marker ใน `/var/log/dormi-db-backup.log` (Alloy → alert): `DONE <unix ts>` เฉพาะเมื่อ DB+ไฟล์ครบ · `FAILED: …` · ไฟล์ล้ม = exit 5 โดย DB ที่อัปแล้วยังมี `OK`
+- test-db-dump.sh ใช้ `docker` ปลอมใน `$d/bin` (นำหน้า PATH) + uploader ปลอม — ไม่แตะ docker/Spaces จริง · รันบน Git Bash Windows ช้า (หลายนาที) เพราะ spawn process เยอะ
+- ใน Git Bash `grep -c $'\r'` ภายใน `$(…)`/for ได้ผลเท่ากับนับทุกบรรทัด (ใช้เช็ก CRLF ไม่ได้) → ใช้ `od -c | head` แทน · `.sh` ต้อง LF (ดู .gitattributes)

@@ -280,6 +280,29 @@ docker exec -i dormi_postgres pg_restore -U dormi -d dormi_v2 --clean --if-exist
 # ⚠️ --clean = DROP ของเดิมก่อน (เขียนทับทั้งก้อน ไม่ใช่ merge)
 ```
 
+**backup รายวันบน Spaces (DB + รูปสลิป) และกู้รูปสลิปคืน**
+
+`deploy/backup/db-dump-to-spaces.sh` (cron 20:30 UTC → `/var/log/dormi-db-backup.log`) อัปขึ้น bucket `dormi-db-backups`:
+- `daily/dormi-<db>-<stamp>.dump` — pg_dump ทุกฐาน
+- `files/<YYYY-MM-DD UTC>.tar.gz` — tar ของ docker volume **`dormi_files_data`** (รูปสลิป/ไฟล์ที่ผู้ใช้อัป · ★ ไม่ใช่ `docker_dormi_files_data` ซึ่งว่างเปล่า) · mount แบบ `:ro` อ่านอย่างเดียว
+- ทั้งสองแบบเก็บ 14 วัน (lifecycle rule ของ bucket ครอบทั้ง bucket) · สำเนาในเครื่องที่ `/var/backups/dormi` เก็บ 3 วัน
+- log marker ที่ alert ใช้: `<ISO> OK <object> <bytes>` · `<ISO> FAILED: ...` · บรรทัดสุดท้าย `<ISO> DONE <unix ts>` เฉพาะเมื่อ DB + ไฟล์สำเร็จหมด (ไฟล์ล้ม = exit 5, ไม่มี DONE, แต่ DB ที่อัปแล้วยังอยู่)
+- ทดสอบสคริปต์ในเครื่อง (ไม่แตะของจริง): `bash deploy/backup/test-db-dump.sh`
+
+กู้รูปสลิปจาก Spaces (⚠️ ทับไฟล์ชื่อซ้ำใน volume — ไฟล์ที่ไม่มีใน archive ไม่ถูกลบ):
+```bash
+# 1) ดาวน์โหลด archive (ใช้ key จาก /root/.config/dormi-db-backup.env — อย่าพิมพ์ key ลงใน command line ของเครื่องที่คนอื่นเห็น ps)
+set -a; . /root/.config/dormi-db-backup.env; set +a
+D=2026-10-24   # วันที่ต้องการ (UTC)
+printf 'user = "%s:%s"
+' "$SPACES_KEY" "$SPACES_SECRET" | curl -fsS --config -   --aws-sigv4 "aws:amz:$SPACES_REGION:s3" -o /tmp/files-$D.tar.gz   "https://$SPACES_BUCKET.$SPACES_REGION.digitaloceanspaces.com/files/$D.tar.gz"
+# (หรือใช้สำเนาในเครื่อง ถ้าไม่เกิน 3 วัน: /var/backups/dormi/dormi-files-$D.tar.gz)
+
+# 2) ดูก่อนว่าข้างในมีอะไร แล้วค่อยกู้
+tar tzf /tmp/files-$D.tar.gz | head
+docker run --rm -v dormi_files_data:/d -v /tmp:/b:ro alpine:3.20 tar xzf /b/files-$D.tar.gz -C /d
+```
+
 ---
 
 ## 7. กติกาที่ต้องจำ (ทำผิดแล้วเจ็บ)
