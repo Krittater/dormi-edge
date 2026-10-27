@@ -2,13 +2,13 @@
 # Deploy the reviewed Admin API; Landing is released separately on Vercel.
 #   inspect      read-only preflight
 #   deploy       backup → build → migrate → swap → verify → reload edge
-# AD_SHA ต้อง pin เป็น commit บน master ของ dormi-admin ที่รีวิวแล้วทุกครั้งก่อน deploy
+# AD_SHA ต้อง pin เป็น commit ที่รีวิวแล้วและอยู่ใน master ของ dormi-admin (tip หรือ ancestor — ให้ปล่อยเฉพาะชุดที่อนุมัติได้) ทุกครั้งก่อน deploy
 set -Eeuo pipefail
 umask 077
 MODE=${1:-inspect}
 [[ "$MODE" == inspect || "$MODE" == deploy ]] || exit 2
 AD=/root/dormi-admin
-AD_SHA=2b9ae5a1960438ff709b7a450108dd12b40a13bf
+AD_SHA=81ec1f15ba3fb400b5a56e4bb196a8221c2df71a
 HOST=admin-api.dormi-linkandrent.com
 . /root/dormi-edge/deploy/lib/deploy-lock.sh
 deploy_lock "admin release $MODE"
@@ -71,7 +71,7 @@ rollback() {
 
 test "$(df -Pk /var/lib/docker | awk 'NR==2 {print $4}')" -gt 8388608 || { echo "Need at least 8 GiB free"; exit 1; }
 git -C "$AD" fetch git@github.com:Krittater/dormi-admin.git master:refs/remotes/origin/master
-test "$(git -C "$AD" rev-parse origin/master)" = "$AD_SHA" || { echo "Remote target changed; stop for review"; exit 1; }
+git -C "$AD" merge-base --is-ancestor "$AD_SHA" origin/master || { echo "AD_SHA is not on reviewed master; stop for review"; exit 1; }
 git -C "$AD" merge-base --is-ancestor HEAD "$AD_SHA"
 docker tag "$AD_OLD" "dormi-admin:before-release-$TS"
 printf '%s\n' "admin=$AD_OLD" "admin_version=$AD_VER" > "$SNAP/images.txt"
