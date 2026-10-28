@@ -4,3 +4,4 @@
 # Alloy config + test fixture ของ monitoring ต้องเป็น LF (fixture มีรหัสสี ANSI + ตรวจแบบตรงตัว)
 *.alloy text eol=lf
 deploy/monitoring/test/*.log text eol=lf
+deploy/monitoring/test/level/*.log text eol=lf

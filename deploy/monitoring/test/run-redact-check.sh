@@ -19,7 +19,7 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$NAME" -v "$MOUNT:/m:ro" "$IMAGE" \
 
 # บรรทัด log_statement ของ Postgres (statement/execute/bind/parse/duration + DETAIL: parameters) ถูกทิ้งทั้งบรรทัดใน pii.alloy → ไม่ถึง loki.echo
 DROPPED=$(grep -cE 'LOG:  ([0-9A-Z]{5}: )?(statement|execute|bind|parse|duration)|DETAIL:  ([0-9A-Z]{5}: )?parameters:' "$HERE/test/sample-postgres.log" || true)
-EXPECTED=$(( $(cat "$HERE/test/sample.log" "$HERE/test/sample-postgres.log" | grep -c .) - DROPPED ))
+EXPECTED=$(( $(cat "$HERE/test/sample.log" "$HERE/test/sample-postgres.log" "$HERE"/test/level/*.log | grep -c .) - DROPPED ))
 out=""
 for _ in $(seq 1 30); do
   out=$(docker logs "$NAME" 2>&1 | grep 'component_id=loki.echo.out' || true)
@@ -155,6 +155,39 @@ must '[Audit] STATEMENT:  keep-me-statement'
 must 'entry="\tkeep-me-tab: \"keep-me-quoted\""'
 # negative: กฎทิ้ง log_statement ต้องจำกัดเฉพาะ container postgres (บรรทัดนี้อยู่ใน sample.log ที่ไม่มี label container)
 must 'keep-me-nonpg'
+
+# label level (pii.alloy stage 1b) — ตรวจเฉพาะส่วน labels="{…}" ของบรรทัดที่มี marker (ข้อความ `level=info` ต้นบรรทัดคือ log ของ alloy เอง ไม่นับ)
+#   want = error|warn|info  หรือ none (ต้องไม่มี label level เลย)
+level_is() {
+  local marker=$1 want=$2 line labels
+  line=$(grep -F -- "$marker" <<<"$out" | head -n1 || true)
+  [[ -n $line ]] || { echo "FAIL: ไม่พบบรรทัด level marker $marker"; fail=1; return; }
+  labels=${line%% entry=\"*}
+  if [[ $want == none ]]; then
+    [[ $labels != *'level=\"'* ]] || { echo "FAIL: $marker ไม่ควรมี label level"; fail=1; }
+  else
+    [[ $labels == *"level=\\\"$want\\\""* ]] || { echo "FAIL: $marker ควรเป็น level=$want (ได้ $labels)"; fail=1; }
+  fi
+}
+level_is 'lvl/http500' error      # HTTP 500
+level_is 'lvl/http409' warn       # HTTP 409 (ผู้ใช้ผิด ไม่ใช่ระบบพัง)
+level_is 'lvl/http200' info       # HTTP 200
+level_is 'lvl/http404' warn       # HTTP 404 ที่ err มีคำว่า ERROR WARN → status ตัดสิน
+level_is 'lvl-nest-error' error   # Nest ERROR
+level_is 'lvl-nest-warn' warn     # Nest WARN
+level_is 'lvl-nest-fatal' error   # Nest FATAL
+level_is 'lvl-nest-log-words' info  # Nest LOG ที่ข้อความมีคำว่า ERROR/WARN ต้องไม่โดน
+level_is 'lvl-stack-line' info    # บรรทัดต่อของ stack trace
+level_is 'lvl-sched-error' error  # dormi-scheduler
+level_is 'lvl/admin502' error     # dormi-admin (HTTP 502)
+level_is 'lvl-web-error' none     # negative: service นอกรายการ (dormi-web) ไม่ได้ label
+level_is 'keep-me-nonpg' none     # negative: log ไม่มี label service ไม่ได้ label
+# label เดิมของ stage 1 ยังอยู่ครบ + การปิด PII ยังทำงานบนบรรทัดที่ได้ label level
+must 'feature=\"invoices\"'
+must 'status=\"500\"'
+must 'lvl-nest-error boom [phone]'
+must 'lvl-nest-warn mail [email]'
+mustnot 'lvl-nest-warn mail a@b.com'
 
 if [[ $fail -ne 0 ]]; then
   echo REDACT_CHECK_FAIL

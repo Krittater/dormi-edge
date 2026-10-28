@@ -137,7 +137,9 @@ if [ "$RUN_MIGRATION" = true ]; then
 
     # --- 2c. run migration (TypeORM ห่อ transaction — พังแล้ว rollback DB อัตโนมัติ) ---
     echo "🚀 Run migration:run..."
+    # --name: ชื่ออ่านออกใน Grafana (RAM ต่อ container) แทนชื่อสุ่มของ Docker · ซ้ำกันไม่ได้ (pid + เวลา)
     if ! docker run --rm \
+            --name "dormi-deploy-migrate-$$-$(date +%s)" \
             --network dormi_network \
             --env-file "$APP_DIR/$COMPOSE_DIR/$ENV_FILE" \
             -e NODE_ENV=production \

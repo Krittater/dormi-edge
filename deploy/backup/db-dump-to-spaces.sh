@@ -101,7 +101,7 @@ ffile="$DIR/dormi-files-$fdate.tar.gz"
 if ! docker volume inspect "$FILES_VOLUME" > /dev/null 2>&1; then
   fail "files: docker volume $FILES_VOLUME not found" 5
 fi
-if ! docker run --rm --network none -v "$FILES_VOLUME:/d:ro" "$FILES_IMAGE" tar czf - -C /d . > "$ffile.part"; then
+if ! docker run --rm --name "dormi-backup-tar-$$-$(date +%s)" --network none -v "$FILES_VOLUME:/d:ro" "$FILES_IMAGE" tar czf - -C /d . > "$ffile.part"; then
   rm -f "$ffile.part"
   fail "files: tar $FILES_VOLUME" 5
 fi

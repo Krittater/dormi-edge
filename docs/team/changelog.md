@@ -2,6 +2,8 @@
 
 เรียงใหม่ → เก่า
 
+- 2026-10-28 · developer · dashboard-clarity (E1): dashboard แยก version/admin/unmatched ออกจากแผงลูกค้า + แผงใหม่ "ระบบตรวจ / ทีมงาน / บอท" · ตารางงานเบื้องหลังเพิ่มคอลัมน์ "ทำอะไร"/"รันเมื่อ" จาก metric ใหม่ `dormi_job_info` (**backend `feat/job-history-metrics` ต้องขึ้นก่อน/พร้อมกัน** ไม่งั้นแค่ไม่มี 2 คอลัมน์) · คำอธิบาย (i) ทุกช่องเขียนใหม่ (Synthetic 5 นาที, RAM 4 GB) · `pii.alloy` stage 1b ใส่ label `level` (error/warn/info) ให้ log ของ dormi-api/scheduler/admin · container ชั่วคราวตอน deploy ตั้งชื่อ `dormi-deploy-*` / `dormi-backup-tar-*` · deploy: `git pull` + `monitoring.sh up` (restart alloy) + `ONLY=dashboard bash monitoring/grafana/import.sh`
+
 - 2026-10-24 · developer · rebase ทับ origin/main a77ea80: alert "งานทุกนาทีหยุดรัน" เพิ่มงานใหม่ `user.signup-outbox` (ส่งการสมัครใหม่ไประบบแอดมิน ทุกนาทีบน scheduler — backend เป็นผู้ห่อ `JobRunService.track`) · README อัปเดตรายการงาน · ไม่เพิ่ม metric ใหม่ (expected-metrics.txt ไม่เปลี่ยน)
 
 - 2026-10-24 · developer · PII fix I1 (review): `pii.alloy` stage 3c ปิด **ทั้งบรรทัด** ของ nginx error log (รูปแบบ `YYYY/MM/DD hh:mm:ss [`): ชุด `\xHH`/`%XX` → `[enc]`, ไม่ใช่ ASCII → `[text]` — กัน `open() "/var/www/certbot/.well-known/acme-challenge/<path ถอดรหัสแล้ว>" failed` (ACME location บนพอร์ต 80) · บรรทัด Nest ไม่โดน (มี negative test)

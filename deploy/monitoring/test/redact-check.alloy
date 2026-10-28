@@ -7,6 +7,11 @@ local.file_match "sample" {
 		{"__path__" = file.path_join(module_path, "sample.log"), "job" = "redact-check"},
 		// จำลอง log ของ container Postgres (stage ที่ scope ด้วย label container)
 		{"__path__" = file.path_join(module_path, "sample-postgres.log"), "job" = "redact-check", "container" = "dormi_postgres", "service" = "postgres"},
+		// จำลอง log ของแอปที่ label level (stage 1b) · dormi-web = negative (ไม่อยู่ในรายการ ต้องไม่ได้ label level)
+		{"__path__" = file.path_join(module_path, "level/dormi-api.log"), "job" = "redact-check", "container" = "docker-dormi-api-1", "service" = "dormi-api"},
+		{"__path__" = file.path_join(module_path, "level/dormi-scheduler.log"), "job" = "redact-check", "container" = "docker-dormi-scheduler-1", "service" = "dormi-scheduler"},
+		{"__path__" = file.path_join(module_path, "level/dormi-admin.log"), "job" = "redact-check", "container" = "docker-dormi-admin-1", "service" = "dormi-admin"},
+		{"__path__" = file.path_join(module_path, "level/dormi-web.log"), "job" = "redact-check", "container" = "dormi-fe-2-dormi-web-1", "service" = "dormi-web"},
 	]
 }
 

@@ -1,0 +1,9 @@
+[32m[Nest] 1  - [39m10/24/2026, 9:00:10 AM [32m    LOG[39m [38;5;3m[HttpRequest] [39m[32m{"t":"http","method":"GET","route":"/lvl/http500","feature":"invoices","status":500,"ms":9.1}[39m
+[32m[Nest] 1  - [39m10/24/2026, 9:00:11 AM [32m    LOG[39m [38;5;3m[HttpRequest] [39m[32m{"t":"http","method":"GET","route":"/lvl/http409","feature":"auth","status":409,"ms":9.1}[39m
+[32m[Nest] 1  - [39m10/24/2026, 9:00:12 AM [32m    LOG[39m [38;5;3m[HttpRequest] [39m[32m{"t":"http","method":"GET","route":"/lvl/http200","feature":"rooms","status":200,"ms":9.1}[39m
+[32m[Nest] 1  - [39m10/24/2026, 9:00:13 AM [32m    LOG[39m [38;5;3m[HttpRequest] [39m[32m{"t":"http","method":"GET","route":"/lvl/http404","feature":"rooms","status":404,"ms":9.1,"err":"lvl-http-words ERROR WARN in text"}[39m
+[31m[Nest] 1  - [39m10/24/2026, 9:00:14 AM [31m  ERROR[39m [38;5;3m[ExceptionsHandler] [39m[31mlvl-nest-error boom 0812345678[39m
+[33m[Nest] 1  - [39m10/24/2026, 9:00:15 AM [33m   WARN[39m [38;5;3m[Mailer] [39m[33mlvl-nest-warn mail a@b.com[39m
+[32m[Nest] 1  - [39m10/24/2026, 9:00:16 AM [32m    LOG[39m [38;5;3m[Audit] [39m[32mlvl-nest-log-words ERROR WARN happened[39m
+    at Object.<anonymous> (/app/dist/main.js:1:1) lvl-stack-line
+[31m[Nest] 1  - [39m10/24/2026, 9:00:17 AM [31m  FATAL[39m [38;5;3m[Bootstrap] [39m[31mlvl-nest-fatal[39m

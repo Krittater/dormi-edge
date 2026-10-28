@@ -41,8 +41,8 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "เว็บ/API ปกติไหม (ตรวจจากภายนอกทุก 2 นาที)",
-      "description": "เขียว = ตอบปกติ, แดง = ล่ม · ข้อมูลมาจาก Grafana Synthetic Monitoring (4 จุด: เว็บ, API, admin API, หน้าแรก) · ถ้าขึ้น 'ยังไม่มีข้อมูล' แปลว่ายังไม่ได้สร้าง check ตาม synthetic-checks.md",
+      "title": "เว็บ/API ปกติไหม (ตรวจจากภายนอกทุก 5 นาที)",
+      "description": "วัดจาก Grafana Synthetic Monitoring: probe ที่สิงคโปร์ยิงเข้าเว็บ 4 จุด (เว็บแอป, API, admin API, หน้า Landing) ทุก 5 นาที เหมือนลูกค้าเปิดเว็บ · ปกติเขียวทั้ง 4 ช่อง, แดง = เว็บนั้นเข้าไม่ได้จากภายนอก (alert 'เว็บ/API ล่ม') · ถ้าขึ้น 'ยังไม่มีข้อมูล' แปลว่ายังไม่ได้สร้าง check ตาม synthetic-checks.md",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -124,7 +124,7 @@
       "id": 3,
       "type": "stat",
       "title": "request ที่ error (5xx)",
-      "description": "สัดส่วน request ที่เซิร์ฟเวอร์ตอบ error ใน 5 นาทีล่าสุด · เขียว < 1%, ส้ม 1–2%, แดง ≥ 2% (alert 'error พุ่ง' ดังที่ 2%)",
+      "description": "สัดส่วน request ที่แอป API ตอบ error 5xx (ระบบพังจริง) ใน 5 นาทีล่าสุด นับจากตัวนับของแอป รวมทุกฟีเจอร์ (4xx ที่ผู้ใช้กรอกผิดไม่นับ) · ปกติ < 1% (เขียว), 1–2% ส้ม, ≥ 2% แดง = alert 'error พุ่ง' · ช่วงกลางคืนที่ request น้อยมาก error 1 ครั้งอาจเป็นหลาย % — ดูจำนวนครั้งในกราฟ request ประกอบ",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -194,7 +194,7 @@
       "id": 4,
       "type": "stat",
       "title": "เวลาตอบ (p95)",
-      "description": "95% ของ request ตอบเร็วกว่าค่านี้ (ช่วง 5 นาทีล่าสุด) · ยิ่งน้อยยิ่งดี · เขียว < 0.5 วินาที, แดง ≥ 1.5 วินาที",
+      "description": "p95 = 95% ของ request ตอบเร็วกว่าค่านี้ (ช่วง 5 นาทีล่าสุด) วัดที่แอป API จาก histogram ของแอป ใช้แทนค่าเฉลี่ยเพราะเห็นคนที่เจอช้าได้ดีกว่า · ปกติ < 500 ms (เขียว), ≥ 500 ส้ม, ≥ 1,500 ms แดง = ช้า · ยิ่งน้อยยิ่งดี",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -264,7 +264,7 @@
       "id": 5,
       "type": "stat",
       "title": "cert (https) เหลือกี่วัน",
-      "description": "จำนวนวันที่เหลือของใบรับรองที่ใกล้หมดสุดใน 4 เว็บ · แดง < 14 วัน (alert 'cert ใกล้หมด'), ส้ม < 30 วัน · certbot ต่ออายุอัตโนมัติ — ถ้าเหลือน้อยแปลว่าการต่ออายุมีปัญหา",
+      "description": "จำนวนวันที่เหลือของใบรับรอง https ตัวที่ใกล้หมดสุดใน 4 เว็บ วัดจาก Synthetic (probe_ssl_earliest_cert_expiry) · ปกติ 30–90 วัน (certbot ต่ออายุเองเมื่อเหลือ 30 วัน) · ส้ม < 30 วัน, แดง < 14 วัน = การต่ออายุมีปัญหา (alert 'cert ใกล้หมด')",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -334,7 +334,7 @@
       "id": 6,
       "type": "timeseries",
       "title": "จำนวน request ต่อนาที",
-      "description": "ปริมาณการใช้งานรวม (เส้นฟ้า) และส่วนที่ error 5xx (เส้นแดง)",
+      "description": "ปริมาณ request ต่อนาที (เฉลี่ย 5 นาที) ของทั้งระบบ นับที่แอป API: เส้นฟ้า = ทั้งหมด (รวมระบบตรวจ/ทีมงาน/บอท), เส้นแดง = เฉพาะ 5xx · คน 1 คนใช้งานปกติ ≈ 1–5 ต่อนาที, เส้นแดงปกติเป็น 0 · ยอดพุ่งสั้นๆ ตอนกลางคืน/เช้ามืดมักเป็นบอท (ดูแผง 'ระบบตรวจ / ทีมงาน / บอท')",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -413,7 +413,7 @@
       "id": 7,
       "type": "timeseries",
       "title": "เวลาตอบ p95 (มิลลิวินาที)",
-      "description": "แนวโน้มความเร็วของระบบ — เส้นพุ่งขึ้นต่อเนื่อง = ระบบเริ่มช้า",
+      "description": "แนวโน้ม p95 ของเวลาตอบ (ms) ตามเวลา วัดที่แอป API จาก histogram ของแอป (ชุดเดียวกับช่อง 'เวลาตอบ p95') · ปกติราบต่ำกว่า 500 ms · เส้นไต่ขึ้นต่อเนื่องหลายวัน = ระบบเริ่มช้า",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -478,14 +478,14 @@
       "id": 9,
       "type": "table",
       "title": "งานเบื้องหลังทุกตัว",
-      "description": "แต่ละแถวคือ 1 งานของระบบ (ออกบิล, ตรวจสลิป ฯลฯ) · 'สำเร็จล่าสุด' ควรอยู่ในรอบปกติของงาน (ออกบิลรายวัน < 26 ชม., งานทุกนาที < 10 นาที = 0.2 ชม.) · 'รอบล่าสุดล้มไหม' = ล้ม เมื่อรอบที่รันล่าสุดใหม่กว่ารอบที่สำเร็จล่าสุด (ถ้า scheduler restart สถานะ 'ล้ม' จะหายจนกว่าจะรันรอบถัดไป · งานรายวันที่ไม่สำเร็จเกิน 26 ชม. alert ยังจับได้) · 'ล้ม (นับตั้งแต่ restart)' เป็นตัวนับที่รีเซ็ตเมื่อระบบ restart และไม่นับครั้งแรกที่งานเริ่มล้ม — ใช้ดูประกอบเท่านั้น · งาน boot.* รันเฉพาะตอนระบบเริ่มทำงาน จึงเก่าได้เป็นปกติ",
+      "description": "ตาราง 10 งานที่ระบบทำเองโดยไม่มีใครกด: 'ทำอะไร/รันเมื่อ' มาจากแอป (dormi_job_info) ส่วนเวลาและจำนวนครั้งมาจากตัวนับของ scheduler ซึ่งเติมค่าล่าสุดจากตาราง job_runs ตอนระบบเริ่ม จึงไม่หายหลัง deploy · ปกติ: 'สำเร็จล่าสุด' อยู่ในรอบของงาน (งานทุกนาที < 0.2 ชม., งานรายวัน < 26 ชม.; งานรายสัปดาห์ และ boot.* ที่รันตอนระบบเริ่ม เก่าได้เป็นวัน) และ 'รอบล่าสุดล้มไหม' เป็น 'ปกติ' · 'ล้ม' = รอบที่รันล่าสุดใหม่กว่ารอบที่สำเร็จล่าสุด; 'ล้ม 7 วัน' นับจากตัวนับที่รีเซ็ตเมื่อ restart และไม่นับครั้งแรกที่งานเริ่มล้ม ใช้ดูประกอบเท่านั้น",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
       },
       "gridPos": {
         "h": 10,
-        "w": 16,
+        "w": 24,
         "x": 0,
         "y": 14
       },
@@ -533,6 +533,17 @@
           "instant": true,
           "range": false,
           "format": "table"
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "max by (job, what, schedule) (dormi_job_info)",
+          "instant": true,
+          "range": false,
+          "format": "table"
         }
       ],
       "fieldConfig": {
@@ -550,7 +561,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "ล้ม (นับตั้งแต่ restart, ครั้ง)"
+              "options": "ล้ม 7 วัน"
             },
             "properties": [
               {
@@ -638,7 +649,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "สำเร็จล่าสุด (ชม.ก่อน)"
+              "options": "สำเร็จล่าสุด (ชม.)"
             },
             "properties": [
               {
@@ -668,6 +679,42 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "งาน"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ทำอะไร"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 400
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "รันเมื่อ"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
           }
         ]
       },
@@ -689,21 +736,26 @@
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Time": true
+              "Time": true,
+              "Value #E": true
             },
             "renameByName": {
               "job": "งาน",
-              "Value #A": "สำเร็จล่าสุด (ชม.ก่อน)",
-              "Value #B": "ล้ม (นับตั้งแต่ restart, ครั้ง)",
-              "Value #C": "รันล่าสุด (ชม.ก่อน)",
-              "Value #D": "รอบล่าสุดล้มไหม"
+              "what": "ทำอะไร",
+              "schedule": "รันเมื่อ",
+              "Value #A": "สำเร็จล่าสุด (ชม.)",
+              "Value #C": "รันล่าสุด (ชม.)",
+              "Value #D": "รอบล่าสุดล้มไหม",
+              "Value #B": "ล้ม 7 วัน"
             },
             "indexByName": {
               "job": 0,
-              "Value #A": 1,
-              "Value #C": 2,
-              "Value #D": 3,
-              "Value #B": 4
+              "what": 1,
+              "schedule": 2,
+              "Value #A": 3,
+              "Value #C": 4,
+              "Value #D": 5,
+              "Value #B": 6
             }
           }
         }
@@ -713,16 +765,16 @@
       "id": 10,
       "type": "stat",
       "title": "backup ฐานข้อมูลล่าสุดเมื่อ",
-      "description": "เวลาที่ backup รอบล่าสุดจบสำเร็จ (อ่านจากบรรทัด DONE ใน log backup) · ควรไม่เกิน 1 วัน · ถ้าไม่มีข้อมูลแปลว่าไม่พบ DONE ใน 3 วัน",
+      "description": "เวลาที่ backup ฐานข้อมูลรอบล่าสุดจบสำเร็จ อ่านจากบรรทัด DONE ใน log ของ script backup (รันทุกวัน 03:30) ที่ Alloy ส่งขึ้น Loki · ปกติไม่เกิน 1 วันก่อน (alert 'backup ไม่สำเร็จ' ดังเมื่อไม่พบ DONE ใน 26 ชม.) · ถ้าไม่มีข้อมูล = ไม่พบ DONE ใน 3 วัน ถือว่าผิดปกติ",
       "datasource": {
         "type": "loki",
         "uid": "grafanacloud-logs"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 16,
-        "y": 14
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 24
       },
       "targets": [
         {
@@ -773,16 +825,16 @@
       "id": 11,
       "type": "stat",
       "title": "backup ล้มใน 7 วัน (ครั้ง)",
-      "description": "จำนวนบรรทัด FAILED: ใน log backup 7 วันล่าสุด · ควรเป็น 0 · 'ไม่มีข้อมูล' = ไม่พบบรรทัด FAILED: (หรือยังไม่มี log backup ส่งมา) ไม่ได้แปลว่าเป็น 0 เสมอไป — ดูช่อง 'backup ล่าสุดเมื่อ' ประกอบ",
+      "description": "จำนวนบรรทัด FAILED: ใน log backup 7 วันล่าสุด (แหล่งเดียวกับช่อง 'backup ล่าสุดเมื่อ') · ปกติเป็น 0 · 'ไม่มีข้อมูล' = ไม่พบบรรทัด FAILED: (ดี) หรือยังไม่มี log ส่งมา — ดูช่อง 'backup ล่าสุดเมื่อ' ประกอบ",
       "datasource": {
         "type": "loki",
         "uid": "grafanacloud-logs"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 14
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 24
       },
       "targets": [
         {
@@ -837,16 +889,16 @@
       "id": 12,
       "type": "timeseries",
       "title": "รอบล่าสุดของงานล้มไหม (1 = ล้ม)",
-      "description": "เส้นขึ้นเป็น 1 = งานนั้นรันรอบล่าสุดแล้วล้ม (รอบที่รันล่าสุดใหม่กว่ารอบที่สำเร็จล่าสุด) · กลับเป็น 0 เมื่อสำเร็จอีกครั้ง · ปกติเป็น 0 ตลอด",
+      "description": "1 เส้นต่องาน: ขึ้นเป็น 1 = รอบที่รันล่าสุดใหม่กว่ารอบที่สำเร็จล่าสุด (ล้ม) แล้วกลับเป็น 0 เมื่องานสำเร็จอีกครั้ง · คำนวณจากเวลารัน/เวลาสำเร็จที่ scheduler บันทึกไว้ (ชุดเดียวกับตารางด้านบน) · ปกติเป็น 0 ตลอด",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 18
+        "w": 12,
+        "x": 12,
+        "y": 24
       },
       "targets": [
         {
@@ -898,7 +950,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 30
       },
       "panels": []
     },
@@ -906,7 +958,7 @@
       "id": 14,
       "type": "bargauge",
       "title": "request ต่อฟีเจอร์ (ในช่วงเวลาที่เลือก)",
-      "description": "ฟีเจอร์ไหนถูกเรียกมากสุด ในช่วงเวลาที่เลือกมุมขวาบน",
+      "description": "จำนวน request รวมของแต่ละฟีเจอร์ในช่วงเวลาที่เลือกมุมขวาบน นับที่แอป API (1 การเปิดหน้าอาจเกิด 3–10 request) · ไม่นับ version (ระบบตรวจ), admin (ทีม Dormi), unmatched (บอท) — ดูสามตัวนี้ที่แผง 'ระบบตรวจ / ทีมงาน / บอท' · ใช้ดูว่าฟีเจอร์ไหนถูกเรียกบ่อยที่สุด",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -915,7 +967,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 25
+        "y": 31
       },
       "targets": [
         {
@@ -924,7 +976,7 @@
             "type": "prometheus",
             "uid": "grafanacloud-prom"
           },
-          "expr": "sort_desc(sum by (feature) (increase(dormi_http_requests_total{feature!=\"unmatched\"}[$__range])))",
+          "expr": "sort_desc(sum by (feature) (increase(dormi_http_requests_total{feature!~\"version|admin|unmatched\"}[$__range])))",
           "instant": true,
           "range": false,
           "legendFormat": "{{feature}}"
@@ -968,7 +1020,7 @@
       "id": 15,
       "type": "bargauge",
       "title": "จำนวนหอที่ใช้แต่ละฟีเจอร์ (7 วัน)",
-      "description": "นับจำนวนหอ (ไม่ซ้ำ) ที่มี request สำเร็จของฟีเจอร์นั้นใน 7 วันล่าสุด — ฟีเจอร์ที่ไม่มีหอใช้เลยอาจไม่คุ้มพัฒนาต่อ · อ่านจาก log ของแอป (ไม่ขึ้นกับช่วงเวลาที่เลือก) · ฟีเจอร์ที่ไม่ผูกกับหอ เช่น auth จะไม่ปรากฏ",
+      "description": "จำนวนหอ (ไม่ซ้ำ) ที่มี request สำเร็จ (2xx/3xx) ของฟีเจอร์นั้นอย่างน้อย 1 ครั้งใน 7 วัน อ่านจาก log ของแอปใน Loki (ไม่ขึ้นกับช่วงเวลาที่เลือก) · ฟีเจอร์ที่ไม่มีหอใช้เลยหลายสัปดาห์ = อาจไม่คุ้มพัฒนาต่อ · ไม่นับ version/admin/unmatched และฟีเจอร์ที่ไม่ผูกกับหอ เช่น auth จะไม่ขึ้น",
       "datasource": {
         "type": "loki",
         "uid": "grafanacloud-logs"
@@ -977,7 +1029,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 25
+        "y": 31
       },
       "targets": [
         {
@@ -986,7 +1038,7 @@
             "type": "loki",
             "uid": "grafanacloud-logs"
           },
-          "expr": "sort_desc(count by (feature) (sum by (feature, apt) (count_over_time({feature=~\".+\", status=~\"2..|3..\"} |= `\"apartmentId\":\"` | regexp `\"apartmentId\":\"(?P<apt>[0-9a-f-]{36})\"` [7d]))))",
+          "expr": "sort_desc(count by (feature) (sum by (feature, apt) (count_over_time({feature=~\".+\", feature!~\"version|admin|unmatched\", status=~\"2..|3..\"} |= `\"apartmentId\":\"` | regexp `\"apartmentId\":\"(?P<apt>[0-9a-f-]{36})\"` [7d]))))",
           "queryType": "instant",
           "legendFormat": "{{feature}}"
         }
@@ -1030,7 +1082,7 @@
       "id": 16,
       "type": "bargauge",
       "title": "ฟีเจอร์ที่ช้าสุด (p95)",
-      "description": "ฟีเจอร์ที่ตอบช้าสุด 8 อันดับ ในช่วงเวลาที่เลือก — ใช้ตัดสินใจว่าจะปรับปรุงที่ไหนก่อน",
+      "description": "ฟีเจอร์ที่ตอบช้าสุด 8 อันดับ (p95 = 95% ของ request เร็วกว่าค่านี้) ในช่วงเวลามุมขวาบน วัดที่แอป API · ใช้เลือกว่าจะปรับความเร็วตรงไหนก่อน · ฟีเจอร์ที่มีคนใช้น้อยมากค่าจะแกว่งเพราะตัวอย่างน้อย; ไม่นับ version/admin/unmatched",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -1039,7 +1091,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 25
+        "y": 31
       },
       "targets": [
         {
@@ -1048,7 +1100,7 @@
             "type": "prometheus",
             "uid": "grafanacloud-prom"
           },
-          "expr": "sort_desc(topk(8, histogram_quantile(0.95, sum by (le, feature) (rate(dormi_http_request_duration_seconds_bucket{feature!=\"unmatched\"}[$__range]))) * 1000))",
+          "expr": "sort_desc(topk(8, histogram_quantile(0.95, sum by (le, feature) (rate(dormi_http_request_duration_seconds_bucket{feature!~\"version|admin|unmatched\"}[$__range]))) * 1000))",
           "instant": true,
           "range": false,
           "legendFormat": "{{feature}}"
@@ -1100,16 +1152,16 @@
       "id": 17,
       "type": "timeseries",
       "title": "request ต่อนาที แยกตามฟีเจอร์",
-      "description": "ดูว่าใครใช้อะไรช่วงเวลาไหน (ซ้อนกัน = ปริมาณรวม)",
+      "description": "request ต่อนาที (เฉลี่ย 5 นาที) ของแต่ละฟีเจอร์ ซ้อนกัน = ปริมาณรวมของลูกค้า นับที่แอป API · เอาเมาส์วางบนกราฟเพื่อดูค่าของทุกฟีเจอร์ ณ เวลานั้น · ไม่นับ version/admin/unmatched (ดูแผงทางขวา); public = คนเปิดหน้า Landing ซึ่งไม่ต้อง login",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
       },
       "gridPos": {
         "h": 7,
-        "w": 24,
+        "w": 16,
         "x": 0,
-        "y": 33
+        "y": 39
       },
       "targets": [
         {
@@ -1118,7 +1170,7 @@
             "type": "prometheus",
             "uid": "grafanacloud-prom"
           },
-          "expr": "sum by (feature) (rate(dormi_http_requests_total[5m])) * 60",
+          "expr": "sum by (feature) (rate(dormi_http_requests_total{feature!~\"version|admin|unmatched\"}[5m])) * 60",
           "instant": false,
           "range": true,
           "legendFormat": "{{feature}}"
@@ -1153,6 +1205,126 @@
       }
     },
     {
+      "id": 30,
+      "type": "timeseries",
+      "title": "ระบบตรวจ / ทีมงาน / บอท (request ต่อนาที)",
+      "description": "แยกทราฟฟิกที่ไม่ใช่ลูกค้าออกจากกราฟฟีเจอร์ นับที่แอป API เหมือนกัน: version = ระบบตรวจ Synthetic ยิงเช็ก /version ทุก 5 นาที, admin = ทีม Dormi ใช้หลังบ้าน, unmatched = URL ที่ไม่มีในระบบ ส่วนใหญ่เป็นบอทสแกนหาไฟล์ลับ (ได้ 404 ทุกครั้ง) · ปกติ version ราบสม่ำเสมอ, unmatched พุ่งเป็นช่วงสั้นๆ ได้ ไม่มีข้อมูลหลุด · ถ้า unmatched สูงต่อเนื่องนานหลายชั่วโมงให้ดู log",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 39
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum(rate(dormi_http_requests_total{feature=\"version\"}[5m])) * 60",
+          "instant": false,
+          "range": true,
+          "legendFormat": "ระบบตรวจ Synthetic (version)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum(rate(dormi_http_requests_total{feature=\"admin\"}[5m])) * 60",
+          "instant": false,
+          "range": true,
+          "legendFormat": "ทีม Dormi (admin)"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum(rate(dormi_http_requests_total{feature=\"unmatched\"}[5m])) * 60",
+          "instant": false,
+          "range": true,
+          "legendFormat": "URL ที่ไม่มี / บอท (unmatched)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ระบบตรวจ Synthetic (version)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ทีม Dormi (admin)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "URL ที่ไม่มี / บอท (unmatched)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
       "type": "row",
       "title": "ทรัพยากร",
       "id": 18,
@@ -1161,7 +1333,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 46
       },
       "panels": []
     },
@@ -1169,7 +1341,7 @@
       "id": 19,
       "type": "stat",
       "title": "CPU ที่ใช้ (%)",
-      "description": "CPU ของเครื่องทั้งเครื่อง เฉลี่ย 5 นาที · ต่อเนื่องเกิน 90% = เครื่องเล็กไป (DigitalOcean จะเตือนอีเมลด้วย)",
+      "description": "CPU ของเครื่อง server ทั้งเครื่อง (2 vCPU) เฉลี่ย 5 นาที จาก node exporter ของ Alloy · ปกติส่วนใหญ่ < 30% (ส้ม ≥ 70%, แดง ≥ 90%) · ต่อเนื่องเกิน 90% = เครื่องเล็กไป (DigitalOcean จะเตือนอีเมลด้วย)",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -1178,7 +1350,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 41
+        "y": 47
       },
       "targets": [
         {
@@ -1240,7 +1412,7 @@
       "id": 20,
       "type": "stat",
       "title": "RAM ที่ใช้ (%)",
-      "description": "หน่วยความจำที่ใช้จริง (ไม่นับ cache ที่คืนได้) · alert 'RAM ตึง' ดังเมื่อเหลือว่างน้อยกว่า 10%",
+      "description": "หน่วยความจำของเครื่อง (RAM 4 GB) ที่ใช้จริง ไม่นับ cache ที่คืนได้ จาก node exporter ของ Alloy · ปกติ < 75% (ส้ม ≥ 75%, แดง ≥ 90%) · alert 'RAM ตึง' ดังเมื่อเหลือว่างน้อยกว่า 10%",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -1249,7 +1421,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 41
+        "y": 47
       },
       "targets": [
         {
@@ -1311,7 +1483,7 @@
       "id": 21,
       "type": "stat",
       "title": "ดิสก์ที่ใช้ (%)",
-      "description": "พื้นที่ดิสก์หลักของเครื่อง · alert 'ดิสก์จะเต็ม' ดังเมื่อเกิน 80%",
+      "description": "พื้นที่ดิสก์หลักของเครื่อง (48 GB) ที่ใช้ไป จาก node exporter ของ Alloy · ปกติ < 70% (ส้ม ≥ 70%, แดง ≥ 80%) · alert 'ดิสก์จะเต็ม' ดังเมื่อเกิน 80%",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -1320,7 +1492,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 41
+        "y": 47
       },
       "targets": [
         {
@@ -1382,7 +1554,7 @@
       "id": 22,
       "type": "stat",
       "title": "ดิสก์จะเหลือว่างอีก 7 วัน (คาดการณ์)",
-      "description": "คาดการณ์จากแนวโน้ม 24 ชั่วโมงล่าสุด ว่าอีก 7 วันดิสก์จะเหลือว่างเท่าไร · ติดลบ = คาดว่าจะเต็มก่อนถึง 7 วัน (alert 'ดิสก์จะเต็ม') · ข้อควรรู้: ช่วง backup/ไฟล์ชั่วคราวอาจทำให้เส้นแนวโน้มแกว่งชั่วคราว",
+      "description": "คาดการณ์จากแนวโน้ม 24 ชั่วโมงล่าสุดว่าอีก 7 วันดิสก์ (48 GB) จะเหลือว่างเท่าไร · ติดลบ = คาดว่าจะเต็มก่อนถึง 7 วัน (alert 'ดิสก์จะเต็ม') · หลัง deploy (build image) หรือช่วง backup ค่าจะลดชั่วคราวแล้วกลับมา",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -1391,7 +1563,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 41
+        "y": 47
       },
       "targets": [
         {
@@ -1448,7 +1620,7 @@
       "id": 23,
       "type": "timeseries",
       "title": "CPU / RAM / ดิสก์ (%)",
-      "description": "แนวโน้มการใช้ทรัพยากรของเครื่อง",
+      "description": "แนวโน้ม CPU / RAM / ดิสก์ของเครื่องทั้งเครื่อง (2 vCPU, RAM 4 GB, ดิสก์ 48 GB) จาก node exporter ของ Alloy ชุดเดียวกับ 3 ช่องด้านบน · ปกติ CPU ส่วนใหญ่ < 30%, RAM < 75%, ดิสก์ < 70% · ยอด CPU/RAM พุ่งตอน deploy แล้วลงเองเป็นปกติ; ดิสก์ควรขึ้นช้าๆ",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -1457,7 +1629,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 45
+        "y": 51
       },
       "targets": [
         {
@@ -1524,7 +1696,7 @@
       "id": 24,
       "type": "timeseries",
       "title": "RAM ต่อ container",
-      "description": "container ไหนกิน RAM มากสุด (ซ้อนกัน = รวมทั้งหมด) · เครื่องมี RAM 2 GB",
+      "description": "RAM ที่แต่ละ container ใช้ (จาก cAdvisor ของ Alloy) ซ้อนกัน = รวมทั้งหมด เครื่องมี RAM 4 GB · ปกติ dormi_postgres ใช้มากสุด (เป็น cache), API/scheduler ราว 200–300 MB ต่อตัว · ชื่อสุ่มอย่าง epic_turing ที่เคยขึ้น = container ชั่วคราวตอน deploy (ตรวจ lockfile/migration) ขึ้นแล้วหายใน 1–3 นาที ตอนนี้ตั้งชื่อ dormi-deploy-*",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -1533,7 +1705,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 45
+        "y": 51
       },
       "targets": [
         {
@@ -1580,7 +1752,7 @@
       "id": 25,
       "type": "timeseries",
       "title": "การเชื่อมต่อฐานข้อมูล",
-      "description": "จำนวน connection ที่ใช้อยู่ เทียบกับเพดาน (alert 'DB connection ใกล้เต็ม' ที่ 80% ของเพดาน)",
+      "description": "จำนวน connection ที่แอปเปิดคุยกับ Postgres (เส้นกำลังใช้) เทียบเพดาน max_connections (เส้นเพดาน = 100) จาก postgres exporter ของ Alloy · ปกติ 2–10 สาย · alert 'DB connection ใกล้เต็ม' ที่ 80% ของเพดาน",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -1589,7 +1761,7 @@
         "h": 7,
         "w": 10,
         "x": 0,
-        "y": 52
+        "y": 58
       },
       "targets": [
         {
@@ -1674,7 +1846,7 @@
       "id": 26,
       "type": "stat",
       "title": "ขนาดฐานข้อมูล",
-      "description": "ขนาดฐานข้อมูลของ Dormi (ไม่นับ template/postgres)",
+      "description": "ขนาดฐานข้อมูลของ Dormi (ไม่นับ template/postgres) จาก postgres exporter ของ Alloy · ปกติค่อยๆ โตตามข้อมูลลูกค้า · ถ้าโตเร็วผิดปกติให้ดูดิสก์ควบคู่",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -1683,7 +1855,7 @@
         "h": 7,
         "w": 4,
         "x": 10,
-        "y": 52
+        "y": 58
       },
       "targets": [
         {
@@ -1736,7 +1908,7 @@
       "id": 27,
       "type": "stat",
       "title": "cache hit ของฐานข้อมูล",
-      "description": "สัดส่วนข้อมูลที่ DB อ่านจาก RAM แทนดิสก์ (ช่วง 1 ชม.) · ควร > 95% — ต่ำกว่านั้นต่อเนื่อง = RAM ไม่พอ/คิวรีหนัก",
+      "description": "สัดส่วนข้อมูลที่ฐานข้อมูลอ่านจาก RAM แทนดิสก์ (เฉลี่ย 1 ชม.) จาก postgres exporter ของ Alloy · ปกติ > 95% (ส้ม < 95%, แดง < 90%) · ต่ำต่อเนื่อง = RAM ไม่พอหรือคิวรีหนัก",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -1745,7 +1917,7 @@
         "h": 7,
         "w": 4,
         "x": 14,
-        "y": 52
+        "y": 58
       },
       "targets": [
         {
@@ -1806,7 +1978,7 @@
       "id": 28,
       "type": "stat",
       "title": "Postgres ทำงานอยู่ไหม",
-      "description": "เขียว = ตอบปกติ",
+      "description": "เขียว = Postgres ตอบ exporter ได้ปกติ (pg_up = 1), แดง = ฐานข้อมูลไม่ตอบ · วัดจาก postgres exporter ของ Alloy ทุก 1 นาที · ถ้าแดงเว็บจะใช้งานไม่ได้ ตรวจ container dormi_postgres ทันที",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -1815,7 +1987,7 @@
         "h": 7,
         "w": 6,
         "x": 18,
-        "y": 52
+        "y": 58
       },
       "targets": [
         {
@@ -1887,7 +2059,7 @@
       "id": 29,
       "type": "table",
       "title": "query ช้า 10 อันดับแรก (เวลาเฉลี่ยต่อครั้ง)",
-      "description": "คิวรีที่ใช้เวลาเฉลี่ยมากสุดในช่วงเวลาที่เลือก · แสดงเฉพาะรหัสคิวรี (queryid) ไม่แสดงข้อความ SQL เพื่อไม่ให้ข้อมูลลูกค้าหลุดออกนอกเครื่อง · ต้องเปิด pg_stat_statements ใน Postgres ถึงจะมีข้อมูล — ถ้าว่างคือยังไม่เปิด",
+      "description": "คิวรีที่ใช้เวลาเฉลี่ยมากสุด 10 อันดับในช่วงเวลาที่เลือก จาก pg_stat_statements แสดงเฉพาะรหัสคิวรี (queryid) ไม่แสดงข้อความ SQL เพื่อไม่ให้ข้อมูลลูกค้าหลุดออกนอกเครื่อง · ว่างเป็นปกติตอนนี้ เพราะยังไม่ได้เปิดการเก็บสถิติ query ใน Postgres",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -1896,7 +2068,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 59
+        "y": 65
       },
       "targets": [
         {

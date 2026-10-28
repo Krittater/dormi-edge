@@ -10,6 +10,8 @@
 //   1. log แอป `... [HttpRequest] {json}` → ดึง JSON หลัง `[HttpRequest] ` แล้วแยก `t`, `feature`, `status`
 //      ทำ label เฉพาะ `feature` และ `status` และค่าต้องผ่าน regex เข้มก่อน (กัน label ระเบิด / PII ใน label)
 //      ไม่ทำ label จาก route / user / apartmentId — ค้นจากเนื้อ log ตอน query แทน
+//   1b. label `level` (error|warn|info) เฉพาะ service dormi-api / dormi-scheduler / dormi-admin: บรรทัด HTTP ตาม status
+//      (5xx=error, 4xx=warn, อื่น=info) · บรรทัด Nest อื่นตาม ERROR|FATAL=error, WARN=warn, ที่เหลือ=info (ค่าคงที่ ไม่แตะเนื้อบรรทัด)
 //   2. ตัด query string ใน "uri" และ "referer" ของ nginx access log (JSON) และใน error log ของ nginx
 //      (ข้อความอิสระ: request: "GET /x?.. HTTP/1.1", upstream: "http://..?..", referrer: "..?..")
 //   2b. log ของ container Postgres: `Failing row contains (...)` → [row] · `Key (cols)=(values)` → `Key (cols)=[key]`
@@ -74,6 +76,73 @@ declare "redact" {
 			values = {
 				feature = "feature_label",
 				status  = "status_label",
+			}
+		}
+
+		// ── 1b. label `level` (error / warn / info) เฉพาะ log ของแอป dormi-api · dormi-scheduler · dormi-admin ──
+		// ทำหลัง stage 0 (ตัด ANSI แล้ว ข้อความขึ้นต้น `[Nest] …` ตรง ๆ) และหลัง stage 1 (label status มาจากที่นั่น)
+		// ค่า level เป็นค่าคงที่ 3 ค่า (ไม่ดึงข้อความจาก log) → ไม่มี PII ใน label และไม่แตะเนื้อบรรทัด จึงไม่กระทบ stage ปิดข้อมูลข้างล่าง
+		// ลำดับ: ตั้ง info ก่อน → ทับด้วย Nest WARN/ERROR/FATAL → ท้ายสุดบรรทัด HTTP (`"t":"http"`) ให้ status ตัดสิน:
+		//   5xx = error · 4xx = warn (ผู้ใช้กรอกผิด/ไม่มีสิทธิ์ ไม่ใช่ระบบพัง) · อื่น ๆ = info
+		// คำว่า ERROR/WARN ต้องอยู่ตำแหน่ง level ของ Nest (`[Nest] <pid> - <วันที่> <เวลา> [AM|PM] <LEVEL> `) ไม่ใช่คำในข้อความ
+		// บรรทัดต่อของ stack trace ไม่มี level → info (ค้นต่อด้วย container + เวลา) · container อื่น (web, nginx, postgres ฯลฯ) ไม่ได้ label level
+		stage.match {
+			selector = `{service=~"dormi-api|dormi-scheduler|dormi-admin"}`
+
+			stage.static_labels {
+				values = {
+					level = "info",
+				}
+			}
+
+			stage.match {
+				selector = `{service=~".+"} |~ "^[[]Nest[]] +[0-9]+ +- +[^ ]+ +[^ ]+ +(?:[AP]M +)?WARN[ ]"`
+
+				stage.static_labels {
+					values = {
+						level = "warn",
+					}
+				}
+			}
+
+			stage.match {
+				selector = `{service=~".+"} |~ "^[[]Nest[]] +[0-9]+ +- +[^ ]+ +[^ ]+ +(?:[AP]M +)?(?:ERROR|FATAL)[ ]"`
+
+				stage.static_labels {
+					values = {
+						level = "error",
+					}
+				}
+			}
+
+			stage.match {
+				selector = `{status=~"[123].."} |= "\"t\":\"http\""`
+
+				stage.static_labels {
+					values = {
+						level = "info",
+					}
+				}
+			}
+
+			stage.match {
+				selector = `{status=~"4.."} |= "\"t\":\"http\""`
+
+				stage.static_labels {
+					values = {
+						level = "warn",
+					}
+				}
+			}
+
+			stage.match {
+				selector = `{status=~"5.."} |= "\"t\":\"http\""`
+
+				stage.static_labels {
+					values = {
+						level = "error",
+					}
+				}
 			}
 		}
 

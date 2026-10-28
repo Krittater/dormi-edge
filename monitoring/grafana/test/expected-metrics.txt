@@ -6,6 +6,7 @@ dormi_http_requests_total
 dormi_http_request_duration_seconds_bucket
 dormi_job_runs_total
 dormi_job_last_run_timestamp_seconds
+dormi_job_info                     # {job, what, schedule} = 1 ต่องาน (backend feat/job-history-metrics) — ตารางงานเบื้องหลัง join เอา "ทำอะไร/รันเมื่อ"
 dormi_job_last_success_timestamp_seconds
 
 # scrape ของ Alloy (Task 5)
