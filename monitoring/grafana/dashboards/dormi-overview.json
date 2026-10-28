@@ -657,26 +657,6 @@
                 "value": {
                   "type": "auto"
                 }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "orange",
-                      "value": 26
-                    },
-                    {
-                      "color": "red",
-                      "value": 50
-                    }
-                  ]
-                }
               }
             ]
           },
@@ -1696,7 +1676,7 @@
       "id": 24,
       "type": "timeseries",
       "title": "RAM ต่อ container",
-      "description": "RAM ที่แต่ละ container ใช้ (จาก cAdvisor ของ Alloy) ซ้อนกัน = รวมทั้งหมด เครื่องมี RAM 4 GB · ปกติ dormi_postgres ใช้มากสุด (เป็น cache), API/scheduler ราว 200–300 MB ต่อตัว · ชื่อสุ่มอย่าง epic_turing ที่เคยขึ้น = container ชั่วคราวตอน deploy (ตรวจ lockfile/migration) ขึ้นแล้วหายใน 1–3 นาที ตอนนี้ตั้งชื่อ dormi-deploy-*",
+      "description": "RAM ที่แต่ละ container ใช้ (จาก cAdvisor ของ Alloy) ซ้อนกัน = รวมทั้งหมด เครื่องมี RAM 4 GB · ปกติ dormi_postgres ใช้มากสุด (เป็น cache), API/scheduler ราว 200–300 MB ต่อตัว · ชื่อสุ่มอย่าง epic_turing ที่เคยขึ้น = container ชั่วคราวตอน deploy (ตรวจ lockfile/migration) ขึ้นแล้วหายใน 1–3 นาที ตั้งแต่ deploy รอบถัดไปจะชื่อ dormi-deploy-* (และ dormi-backup-tar-* ตอน backup 03:30)",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"

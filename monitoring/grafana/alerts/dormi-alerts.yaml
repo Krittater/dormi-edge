@@ -10,8 +10,8 @@
 #
 # ★ กติกาที่ตกลงไว้
 #   • alert งาน (job) ใช้ max() ข้าม instance — replica ของ api ที่ไม่ใช่ scheduler ค้างค่า gauge
-#     last_success ตอน boot (โหลดจาก DB) ถ้าไม่ใช้ max จะเตือนผิด · ส่วน last_run มีเฉพาะ replica ที่รัน
-#     scheduler จริง — scheduler หยุด = series last_run หายไปเลย (ไม่ใช่ค่าเก่า) จึงต้องให้ "ไม่มีข้อมูล" = ดัง
+#     last_run/last_success ตอน boot (โหลดจาก job_runs) ถ้าไม่ใช้ max จะเตือนผิด · scheduler หยุด = ค่า
+#     last_run ค้างที่ค่าเก่าจาก DB แล้วเกินเกณฑ์เวลาเอง (งานที่ไม่มีประวัติใน DB = series หาย → "ไม่มีข้อมูล" = ดัง)
 #   • "ล้มครั้งแรก" ของงานดูจาก last_run > last_success (ไม่ใช้ increase() ของ counter ที่เริ่มที่ 1 หลัง restart)
 #   • ลบ rule ออกจากไฟล์นี้ไม่ได้ลบใน Grafana — import.sh สร้าง/อัปเดตเท่านั้น ต้องลบเองใน UI
 #   • job label ของ dormi_job_* ต้องเป็น job="billing.daily" ฯลฯ → config.alloy ต้องตั้ง honor_labels = true
@@ -126,7 +126,7 @@ groups:
               # (1) ไม่สำเร็จมานานกว่า 26 ชม. (93600 วินาที) หรือ (2) รอบที่รันล่าสุดใหม่กว่ารอบที่สำเร็จล่าสุด = รอบล่าสุดล้ม
               #   (2) ใช้เทียบ timestamp แทน increase(counter): counter ของ status="failed" เริ่มที่ 1 ตอนล้มครั้งแรก
               #   (increase() = 0) และรีเซ็ตเมื่อ restart · success ตั้ง last_run = last_success ค่าเดียวกัน จึงเป็น > ก็ต่อเมื่อล้มจริง
-              # max by (job) = เอาค่าสูงสุดข้าม replica (last_success โหลดจาก DB ทุก replica · last_run มีแต่ตัวที่รัน scheduler)
+              # max by (job) = เอาค่าสูงสุดข้าม replica (ทุก replica โหลด last_run/last_success ล่าสุดจาก job_runs ตอน boot · ค่าสดมาจากตัวที่รัน scheduler)
               expr: '((time() - max by (job) (dormi_job_last_success_timestamp_seconds{job="billing.daily"})) > 93600) or (max by (job) (dormi_job_last_run_timestamp_seconds{job="billing.daily"}) > max by (job) (dormi_job_last_success_timestamp_seconds{job="billing.daily"}))'
               instant: true
               range: false
@@ -153,8 +153,8 @@ groups:
               refId: A
               datasource: { type: prometheus, uid: grafanacloud-prom }
               # วินาทีนับจากรอบล่าสุดที่รันจบ (สำเร็จหรือล้มก็นับ) · max by (job) ข้าม replica
-              # ★ last_run ถูกตั้งเฉพาะใน container ที่รัน scheduler — scheduler ดับ/ค้างจนเข้าถึงไม่ได้ = series หายไป
-              #   (ไม่ใช่ค่าเก่าค้าง) จึงต้อง noDataState: Alerting ไม่งั้นเงียบตอนที่ควรดังที่สุด
+              # ★ scheduler ดับ/ค้าง: งานที่มีประวัติใน job_runs = last_run ค้างค่าเก่า (api โหลดจาก DB) แล้วเกิน 600 วิ เอง
+              #   งานที่ไม่มีประวัติ = series หายไป จึงยังต้อง noDataState: Alerting ไม่งั้นเงียบตอนที่ควรดังที่สุด
               expr: 'time() - max by (job) (dormi_job_last_run_timestamp_seconds{job=~"billing.utility-calc|slip.retry|user.signup-outbox"})'
               instant: true
               range: false
