@@ -655,7 +655,7 @@
               {
                 "id": "custom.cellOptions",
                 "value": {
-                  "type": "color-text"
+                  "type": "auto"
                 }
               },
               {

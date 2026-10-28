@@ -1,6 +1,6 @@
 # Synthetic checks — ตรวจเว็บ/API จากภายนอก (สร้างเองใน UI)
 
-Grafana Synthetic Monitoring ส่งคำขอ HTTP เข้าเว็บเราจากภายนอกทุก 2 นาที แล้วเก็บผลเป็น metric (`probe_success`, `probe_ssl_earliest_cert_expiry`, `probe_duration_seconds`)
+Grafana Synthetic Monitoring ส่งคำขอ HTTP เข้าเว็บเราจากภายนอกทุก 5 นาที (ค่าที่ใช้จริงบน prod ตั้งแต่ 2026-10-24) แล้วเก็บผลเป็น metric (`probe_success`, `probe_ssl_earliest_cert_expiry`, `probe_duration_seconds`)
 dashboard "Dormi ภาพรวม" และ alert **เว็บ/API ล่ม** / **cert ใกล้หมด** อ่านจาก metric นี้
 
 **ทำไมสร้างมือ:** API ของ Synthetic ต้องใช้ token แยกอีกตัว — ระยะแรกไม่ทำ automation (ตกลงไว้ใน decisions.md) · ทำครั้งเดียว ประมาณ 10 นาที
@@ -13,7 +13,7 @@ dashboard "Dormi ภาพรวม" และ alert **เว็บ/API ล่�
 
 | ช่อง | ค่า |
 |---|---|
-| Frequency (ความถี่) | **2 minutes** |
+| Frequency (ความถี่) | **5 minutes** (300s — UI สร้างเป็นชนิด MULTIHTTP ก็ใช้ได้) |
 | Probe locations | **เลือก 1 จุดเดียว: Singapore** (ใกล้ไทยที่สุด — ถ้ารายการของคุณไม่มี ให้เลือก Tokyo หรือ Mumbai) |
 | Request method | GET |
 | Timeout | 10 วินาที |
@@ -27,7 +27,7 @@ dashboard "Dormi ภาพรวม" และ alert **เว็บ/API ล่�
 
 | # | ชื่อ (Job name) | Target (URL — พิมพ์ให้ตรงตามนี้ทุกตัวอักษร) | ตรวจอะไร |
 |---|---|---|---|
-| 1 | `dormi-web` | `https://app.dormi-linkandrent.com/` | หน้าเว็บที่ลูกค้าใช้ |
+| 1 | `dormi-web` | `https://app.dormi-linkandrent.com/login` | หน้าเว็บที่ลูกค้าใช้ (ห้ามใช้ `/` — ตอบ 307 ไป /dashboard และ probe ไม่ตาม redirect = นับว่าล่มตลอด) |
 | 2 | `dormi-api-version` | `https://dormi-api.dormi-linkandrent.com/version` | API หลัก (backend) |
 | 3 | `dormi-admin-health` | `https://admin-api.dormi-linkandrent.com/health` | API ของ admin |
 | 4 | `dormi-landing` | `https://dormi-linkandrent.com/` | หน้าแรก (landing) |
@@ -47,5 +47,5 @@ dashboard "Dormi ภาพรวม" และ alert **เว็บ/API ล่�
 
 ## โควตาฟรี
 
-4 checks × ทุก 2 นาที × 1 จุด ≈ 86,400 ครั้ง/เดือน (ชั้นฟรีของ Grafana Cloud ให้ราว 100,000 ครั้ง/เดือน — ตรวจตัวเลขล่าสุดที่หน้า Usage)
+4 checks × ทุก 5 นาที × 1 จุด ≈ 35,000 ครั้ง/เดือน (ชั้นฟรีของ Grafana Cloud ให้ราว 100,000 ครั้ง/เดือน — ตรวจตัวเลขล่าสุดที่หน้า Usage)
 **ห้ามเพิ่มจุดตรวจ (probe) หรือถี่ขึ้น** — จะเกินโควตาฟรี (ข้อกำหนด: ค่าใช้จ่าย 0 บาท)
