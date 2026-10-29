@@ -107,3 +107,7 @@ docker exec dormi-edge nginx -s reload
 sleep 2
 echo "API_RELEASE_COMPLETE admin=$AD_SHA backup=$SNAP"
 docker ps --format '{{.Names}} | {{.Status}} | {{.Image}}'
+
+# release สำเร็จแล้ว → ล้าง build cache เก่า (build บน server ทุกรอบ) · ล้มก็ไม่กระทบ release
+# shellcheck source=SCRIPTDIR/lib/prune-build-cache.sh
+. /root/dormi-edge/deploy/lib/prune-build-cache.sh && prune_build_cache || true
