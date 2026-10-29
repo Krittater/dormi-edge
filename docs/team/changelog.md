@@ -2,6 +2,8 @@
 
 เรียงใหม่ → เก่า
 
+- 2026-10-29 · developer · security-hardening E3: workflow ทั้ง 3 ไฟล์ (admin-release, full-update ×10, revert-db) pin `appleboy/ssh-action` ด้วย commit SHA `7eaf76671a0d7eec5d98ee897acda4f968735a17` (# v1.2.0 — เวอร์ชันเดิม ไม่อัป) · อัปเวอร์ชันครั้งต่อไป: `git ls-remote https://github.com/appleboy/ssh-action refs/tags/<tag>` (ถ้าเป็น annotated tag ใช้ SHA ของ `<tag>^{}`) · backend/frontend `deploy-production.yml` ต้อง pin ด้วยค่าเดียวกัน
+
 - 2026-10-29 · developer · security-hardening E2: `30-web.conf` (app.) เพิ่ม `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, `Referrer-Policy: strict-origin-when-cross-origin` ทุก location (รวม 429/301) · frontend ไม่มี iframe/embed จึงไม่กระทบ · API/admin-api/landing ไม่แตะ · deploy: `git pull` + `nginx -t && nginx -s reload`
 
 - 2026-10-29 · developer · security-hardening E1: `limit_req` ต่อ IP ที่ `/auth/login` (60/นาที burst 30), `/auth/{register,forgot-password,reset-password,change-password,email/verification,email/verify}` (30/นาที burst 15) ใน `10-dormi.conf` และหน้า auth ของเว็บ (300/นาที burst 60) ใน `30-web.conf` → 429 · **`client_max_body_size` เริ่มต้น 2m** (ตัด `50m` ออกจาก `snippets/proxy_common.conf` + `nginx.conf`) เฉพาะ 3 route อัปโหลด (qr-scan, payment-slips, cycle document) คง 50m · มีผลกับ admin-api และ landing ด้วย (ไม่มี upload จึงไม่กระทบ) · backend/FE: route อัปโหลดใหม่ต้องเพิ่มใน `10-dormi.conf` · deploy: `git pull` + `nginx -t && nginx -s reload` (ไม่ rebuild)

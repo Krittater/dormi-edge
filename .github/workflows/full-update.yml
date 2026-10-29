@@ -47,7 +47,7 @@ jobs:
     name: "0 · pull edge scripts"
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      - uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.PROD_SERVER }}
           username: ${{ secrets.SERVER_USER }}
@@ -60,7 +60,7 @@ jobs:
     needs: prep
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      - uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.PROD_SERVER }}
           username: ${{ secrets.SERVER_USER }}
@@ -73,7 +73,7 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      - uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.PROD_SERVER }}
           username: ${{ secrets.SERVER_USER }}
@@ -88,7 +88,7 @@ jobs:
     if: ${{ inputs.scope != 'frontend' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      - uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.PROD_SERVER }}
           username: ${{ secrets.SERVER_USER }}
@@ -104,7 +104,7 @@ jobs:
     if: ${{ inputs.scope != 'frontend' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      - uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.PROD_SERVER }}
           username: ${{ secrets.SERVER_USER }}
@@ -127,7 +127,7 @@ jobs:
         && needs.backend.result != 'failure' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      - uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.PROD_SERVER }}
           username: ${{ secrets.SERVER_USER }}
@@ -150,7 +150,7 @@ jobs:
         && (needs.backend.result == 'success' || needs.frontend.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      - uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         env:
           VERSION_INPUT: ${{ inputs.version }}
           DEPLOY_SCOPE: ${{ inputs.scope }}
@@ -171,7 +171,7 @@ jobs:
     if: ${{ always() && needs.frontend.result == 'failure' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      - uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.PROD_SERVER }}
           username: ${{ secrets.SERVER_USER }}
@@ -190,7 +190,7 @@ jobs:
             || (needs.frontend.result == 'failure' && needs.backend.result == 'success')) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      - uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.PROD_SERVER }}
           username: ${{ secrets.SERVER_USER }}
@@ -208,7 +208,7 @@ jobs:
     if: ${{ always() && needs.migration.result == 'failure' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      - uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.PROD_SERVER }}
           username: ${{ secrets.SERVER_USER }}
