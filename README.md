@@ -140,6 +140,18 @@ curl https://dormi-linkandrent.com/whoami              # ได้ "dormi-web"
 - **ขนาด body**: ค่าเริ่มต้น `client_max_body_size 2m` (`nginx.conf`) · เฉพาะ 3 route อัปโหลดใน `10-dormi.conf` ได้ 50m (ของเดิม): `/apartments/:id/payment-accounts/qr-scan`, `/apartments/:id/me/payment-slips`, `/apartments/:id/utility-meter-groups/:gid/cycles/:cid/document` · เพดานจริง = multer ใน backend (`FILE_MAX_SIZE_MB`, ค่าเริ่มต้น 10)
 - route อัปโหลดใหม่ใน backend ที่ใช้ `FileInterceptor` → ต้องเพิ่มใน location อัปโหลดของ `10-dormi.conf` ไม่งั้นโดน **413** ที่ 2m
 
+## Security headers
+
+| vhost | header |
+|---|---|
+| `app.` (`30-web.conf`) | HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, `Referrer-Policy: strict-origin-when-cross-origin` |
+| apex/www (`40-landing.conf` + `snippets/landing_security_headers.conf`) | HSTS, nosniff, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy` — ไม่ได้แตะ |
+| `dormi-api.`, `admin-api.` | HSTS, nosniff เท่านั้น (JSON API; ไม่ใส่ `DENY` เพราะอาจมีรูป/ไฟล์ที่ถูกเปิดใน frame) |
+
+- ฝั่ง app ใส่แค่ `frame-ancestors` ของ CSP (กัน clickjacking) — CSP เต็ม (script-src ฯลฯ) เป็นงานแยก ใส่แล้วหน้า Next พังง่าย
+- ตรวจแล้ว: frontend ไม่มี `<iframe>`/`<embed>`/`<object>` และไม่ถูกฝังจาก landing/admin → `DENY` ปลอดภัย · ถ้าวันหน้าต้องฝังแอปใน frame ของเรา ให้เปลี่ยนเป็น `SAMEORIGIN` / `frame-ancestors 'self'`
+- `add_header` ใน location ใดๆ จะทำให้ไม่สืบทอด header ของ server → ต้องใส่ชุดเดียวกันซ้ำใน location นั้น
+
 ## Load balancing (edge = LB ในตัว)
 
 แต่ละ vhost มี `upstream <x>_pool { least_conn; server <service>:<port> resolve; }`
