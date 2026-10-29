@@ -8,7 +8,7 @@ umask 077
 MODE=${1:-inspect}
 [[ "$MODE" == inspect || "$MODE" == deploy ]] || exit 2
 AD=/root/dormi-admin
-AD_SHA=663008df5de3ad4186a7a7a786407450476a6878
+AD_SHA=eb64f29ab1cde0e9426a2a6d068e7b54f27ceca3
 HOST=admin-api.dormi-linkandrent.com
 . /root/dormi-edge/deploy/lib/deploy-lock.sh
 deploy_lock "admin release $MODE"
@@ -107,3 +107,7 @@ docker exec dormi-edge nginx -s reload
 sleep 2
 echo "API_RELEASE_COMPLETE admin=$AD_SHA backup=$SNAP"
 docker ps --format '{{.Names}} | {{.Status}} | {{.Image}}'
+
+# release สำเร็จแล้ว → ล้าง build cache เก่า (build บน server ทุกรอบ) · ล้มก็ไม่กระทบ release
+# shellcheck source=SCRIPTDIR/lib/prune-build-cache.sh
+. /root/dormi-edge/deploy/lib/prune-build-cache.sh && prune_build_cache || true

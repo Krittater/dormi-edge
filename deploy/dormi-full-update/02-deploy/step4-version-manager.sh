@@ -163,4 +163,8 @@ echo "========================"
 echo " ✅ RELEASE บันทึกแล้ว: v$NEW"
 echo " STATUS: SUCCESS"
 echo "========================"
+
+# deploy สำเร็จแล้ว → ล้าง build cache เก่า (ดิสก์โต ~0.5–1 GB ต่อรอบถ้าไม่ล้าง) · ล้มก็ไม่กระทบ release
+# shellcheck source=SCRIPTDIR/../../lib/prune-build-cache.sh
+. "$EDGE_DIR/deploy/lib/prune-build-cache.sh" && prune_build_cache || true
 exit 0
