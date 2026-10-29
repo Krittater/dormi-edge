@@ -126,6 +126,20 @@ curl https://dormi-linkandrent.com/whoami              # ได้ "dormi-web"
 - ออก cert ใหม่เมื่อ: เพิ่ม/ลบโดเมน (`sh scripts/issue-cert.sh` ใหม่) — ต่ออายุปกติ certbot ทำเองทุก 12 ชม.
 - ห้าม commit `data/`, `*.pem`, `*.key`, `.env` (มี .gitignore กันแล้ว)
 
+## Rate limit + ขนาด body (security hardening 2026-10)
+
+| ที่ไหน | โซน / ค่า | ครอบ | ไม่ครอบ |
+|---|---|---|---|
+| `10-dormi.conf` (API) | `api_auth_login` 60 req/นาที/IP burst 30 | `POST /auth/login` | — |
+| `10-dormi.conf` (API) | `api_auth_other` 30 req/นาที/IP burst 15 | `/auth/register`, `forgot-password`, `reset-password`, `change-password`, `email/verification`, `email/verify` | `/auth/me`, `/auth/me/plan`, `/auth/logout` (เรียกทุกหน้า) |
+| `30-web.conf` (app.) | `web_auth_pages` 300 req/นาที/IP burst 60 | หน้า `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email` | asset, หน้าอื่น, `/app/*` (ทางเข้าสำรองชั่วคราว) |
+
+- เกิน → **429** (API ตอบ JSON `{statusCode, message}` + `Retry-After`) · log ระดับ warn `limiting requests`
+- ตั้ง **หลวมกว่า** backend (`THROTTLE_SENSITIVE` = 5/นาที) โดยตั้งใจ: edge กัน flood ก่อนถึง Node · การกันเดารหัสจริงอยู่ที่ backend · คนหลัง NAT ร่วม (wifi หอพัก) ต้องไม่โดนที่ด่านนี้
+- match แบบ `~*` (ไม่สนตัวพิมพ์) + `/?` ท้าย เพราะ Express จับ route แบบนั้น · เพิ่ม route สาธารณะใหม่ใต้ `/auth` → เพิ่มในรายการของ `10-dormi.conf`
+- **ขนาด body**: ค่าเริ่มต้น `client_max_body_size 2m` (`nginx.conf`) · เฉพาะ 3 route อัปโหลดใน `10-dormi.conf` ได้ 50m (ของเดิม): `/apartments/:id/payment-accounts/qr-scan`, `/apartments/:id/me/payment-slips`, `/apartments/:id/utility-meter-groups/:gid/cycles/:cid/document` · เพดานจริง = multer ใน backend (`FILE_MAX_SIZE_MB`, ค่าเริ่มต้น 10)
+- route อัปโหลดใหม่ใน backend ที่ใช้ `FileInterceptor` → ต้องเพิ่มใน location อัปโหลดของ `10-dormi.conf` ไม่งั้นโดน **413** ที่ 2m
+
 ## Load balancing (edge = LB ในตัว)
 
 แต่ละ vhost มี `upstream <x>_pool { least_conn; server <service>:<port> resolve; }`

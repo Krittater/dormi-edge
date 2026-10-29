@@ -1,5 +1,12 @@
 # Developer gotchas — dormi-edge
 
+## nginx edge (`nginx/`)
+- `client_max_body_size` ใน `snippets/proxy_common.conf` (include ใน location) ทับค่า http/server ทุก route → **ห้ามใส่ในไฟล์นั้น** · ค่าเริ่มต้นอยู่ `nginx.conf` (2m) · route อัปโหลดตั้งเองใน location
+- `location ^~ /app/` ชนะ regex location ทุกตัว → regex ที่ตั้งใจครอบ /app/... ไม่ทำงาน · `add_header` ใน location/named location ทำให้ไม่สืบทอด header ของ server (ใส่ซ้ำเอง)
+- Express (backend) จับ route แบบไม่สนตัวพิมพ์ + ไม่เข้ม trailing slash → location ที่กัน/จำกัด route ต้องใช้ `~*` และ `/?$`
+- ทดสอบ nginx ในเครื่อง (ไม่ต้องมี cert/upstream จริง): `docker build -t dormi-edge-test .` (entrypoint สร้าง dummy cert เอง) · สร้าง network + stub nginx (listen 3000, `return 200`) ใส่ `--network-alias dormi-api` (และ dormi-web/dormi-admin/dormi-landing) · รัน edge mount `nginx.conf` + `projects` + `snippets` (`:ro`) แล้ว `docker exec <edge> nginx -t` · ยิง `curl -k --resolve <host>:18443:127.0.0.1 https://<host>:18443/...` (Windows curl/schannel ไม่ส่ง SNI ถ้าใช้ IP → default server ปฏิเสธ handshake; ต้องใช้ชื่อโดเมน + `--ssl-no-revoke`; curl 1 คำสั่งหลาย URL ใช้ connection เดียว เร็วพอทดสอบ burst; ใช้ `-w "%{http_code} %{url_effective}\n"`) · git-bash ต้อง `MSYS_NO_PATHCONV=1`
+- ไฟล์ใน working tree เป็น CRLF (index เป็น LF) — แก้ด้วย node script ที่ normalize→LF แล้วเขียนกลับ CRLF
+
 ## Monitoring (Grafana Alloy) — `deploy/monitoring/`
 - Alloy pin `grafana/alloy:v1.20.1` · format ด้วย `alloy fmt` (ใช้ tab) ก่อน commit: `docker run --rm -v "$PWD/deploy/monitoring:/m" grafana/alloy:v1.20.1 fmt /m/config.alloy`
 - กติกาตัด PII อยู่ `pii.alloy` ที่เดียว (declare module, import ด้วย `file.path_join(module_path, ...)`) — แก้แล้วรัน `bash deploy/monitoring/test/run-redact-check.sh` ต้องได้ `REDACT_CHECK_PASS`

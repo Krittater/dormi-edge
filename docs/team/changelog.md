@@ -2,6 +2,8 @@
 
 เรียงใหม่ → เก่า
 
+- 2026-10-29 · developer · security-hardening E1: `limit_req` ต่อ IP ที่ `/auth/login` (60/นาที burst 30), `/auth/{register,forgot-password,reset-password,change-password,email/verification,email/verify}` (30/นาที burst 15) ใน `10-dormi.conf` และหน้า auth ของเว็บ (300/นาที burst 60) ใน `30-web.conf` → 429 · **`client_max_body_size` เริ่มต้น 2m** (ตัด `50m` ออกจาก `snippets/proxy_common.conf` + `nginx.conf`) เฉพาะ 3 route อัปโหลด (qr-scan, payment-slips, cycle document) คง 50m · มีผลกับ admin-api และ landing ด้วย (ไม่มี upload จึงไม่กระทบ) · backend/FE: route อัปโหลดใหม่ต้องเพิ่มใน `10-dormi.conf` · deploy: `git pull` + `nginx -t && nginx -s reload` (ไม่ rebuild)
+
 - 2026-10-28 · developer · dashboard-clarity (E1): dashboard แยก version/admin/unmatched ออกจากแผงลูกค้า + แผงใหม่ "ระบบตรวจ / ทีมงาน / บอท" · ตารางงานเบื้องหลังเพิ่มคอลัมน์ "ทำอะไร"/"รันเมื่อ" จาก metric ใหม่ `dormi_job_info` (**backend `feat/job-history-metrics` ต้องขึ้นก่อน/พร้อมกัน** ไม่งั้นแค่ไม่มี 2 คอลัมน์) · คำอธิบาย (i) ทุกช่องเขียนใหม่ (Synthetic 5 นาที, RAM 4 GB) · `pii.alloy` stage 1b ใส่ label `level` (error/warn/info) ให้ log ของ dormi-api/scheduler/admin · container ชั่วคราวตอน deploy ตั้งชื่อ `dormi-deploy-*` / `dormi-backup-tar-*` · deploy: `git pull` + `monitoring.sh up` (restart alloy) + `ONLY=dashboard bash monitoring/grafana/import.sh`
 
 - 2026-10-24 · developer · rebase ทับ origin/main a77ea80: alert "งานทุกนาทีหยุดรัน" เพิ่มงานใหม่ `user.signup-outbox` (ส่งการสมัครใหม่ไประบบแอดมิน ทุกนาทีบน scheduler — backend เป็นผู้ห่อ `JobRunService.track`) · README อัปเดตรายการงาน · ไม่เพิ่ม metric ใหม่ (expected-metrics.txt ไม่เปลี่ยน)
