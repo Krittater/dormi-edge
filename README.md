@@ -136,6 +136,8 @@ curl https://dormi-linkandrent.com/whoami              # ได้ "dormi-web"
 
 - เกิน → **429** (API ตอบ JSON `{statusCode, message}` + `Retry-After`) · log ระดับ warn `limiting requests`
 - ตั้ง **หลวมกว่า** backend (`THROTTLE_SENSITIVE` = 5/นาที) โดยตั้งใจ: edge กัน flood ก่อนถึง Node · การกันเดารหัสจริงอยู่ที่ backend · คนหลัง NAT ร่วม (wifi หอพัก) ต้องไม่โดนที่ด่านนี้
+- **preflight ไม่นับ**: `OPTIONS` ได้ key ว่าง (`map $request_method $auth_rl_key`) → ไม่กินโควตา (1 การเรียกจริงจาก browser = OPTIONS + POST) และผ่านไป backend ตามปกติ
+- **CORS ของ response ที่ edge สร้างเอง** (429 จาก limit_req, 413 เกิน body size — เฉพาะ vhost API): ใส่ `Access-Control-Allow-Origin` (เฉพาะ origin ใน `map $cors_allow_origin` = `https://app.dormi-linkandrent.com`, `https://dormi-linkandrent.com` ตรงกับ `CORS_ORIGIN` ของ backend prod) + `Allow-Credentials: true` + `Vary: Origin` · origin อื่นไม่ได้ header · response ปกติที่ผ่าน proxy ไม่ถูกเติม (backend เป็นเจ้าของ) · เพิ่มโดเมนใน `CORS_ORIGIN` ของ backend → ต้องเพิ่มใน map นี้ด้วย
 - match แบบ `~*` (ไม่สนตัวพิมพ์) + `/?` ท้าย เพราะ Express จับ route แบบนั้น · เพิ่ม route สาธารณะใหม่ใต้ `/auth` → เพิ่มในรายการของ `10-dormi.conf`
 - **ขนาด body**: ค่าเริ่มต้น `client_max_body_size 2m` (`nginx.conf`) · เฉพาะ 3 route อัปโหลดใน `10-dormi.conf` ได้ 50m (ของเดิม): `/apartments/:id/payment-accounts/qr-scan`, `/apartments/:id/me/payment-slips`, `/apartments/:id/utility-meter-groups/:gid/cycles/:cid/document` · เพดานจริง = multer ใน backend (`FILE_MAX_SIZE_MB`, ค่าเริ่มต้น 10)
 - route อัปโหลดใหม่ใน backend ที่ใช้ `FileInterceptor` → ต้องเพิ่มใน location อัปโหลดของ `10-dormi.conf` ไม่งั้นโดน **413** ที่ 2m

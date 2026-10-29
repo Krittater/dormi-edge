@@ -2,6 +2,8 @@
 
 เรียงใหม่ → เก่า
 
+- 2026-10-29 · developer · security-hardening E1 fix (review): (1) 429 และ 413 ที่ edge สร้างเองบน vhost API มี CORS (ACAO/credentials/Vary) ตาม `map $cors_allow_origin` — ไม่งั้น browser ที่ app. อ่านไม่ได้ (เห็นเป็น CORS/network error) · **เพิ่มโดเมนใน `CORS_ORIGIN` ของ backend → ต้องเพิ่มใน map ที่ `10-dormi.conf` ด้วย** (2) `OPTIONS` (preflight) ไม่นับใน `api_auth_*` (key ว่าง) · `error_page 429/413` ย้ายไประดับ server
+
 - 2026-10-29 · developer · security-hardening E3: workflow ทั้ง 3 ไฟล์ (admin-release, full-update ×10, revert-db) pin `appleboy/ssh-action` ด้วย commit SHA `7eaf76671a0d7eec5d98ee897acda4f968735a17` (# v1.2.0 — เวอร์ชันเดิม ไม่อัป) · อัปเวอร์ชันครั้งต่อไป: `git ls-remote https://github.com/appleboy/ssh-action refs/tags/<tag>` (ถ้าเป็น annotated tag ใช้ SHA ของ `<tag>^{}`) · backend/frontend `deploy-production.yml` ต้อง pin ด้วยค่าเดียวกัน
 
 - 2026-10-29 · developer · security-hardening E2: `30-web.conf` (app.) เพิ่ม `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, `Referrer-Policy: strict-origin-when-cross-origin` ทุก location (รวม 429/301) · frontend ไม่มี iframe/embed จึงไม่กระทบ · API/admin-api/landing ไม่แตะ · deploy: `git pull` + `nginx -t && nginx -s reload`
