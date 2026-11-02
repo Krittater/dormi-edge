@@ -14,7 +14,7 @@ internet → :80/:443 → edge (ตัวนี้) ──→ dormi-api:3000   (
 
 | Path | หน้าที่ |
 |------|--------|
-| `Dockerfile` | nginx:1.28-alpine + openssl + inotify-tools + entrypoint scripts |
+| `Dockerfile` | nginx:1.30-alpine + openssl + inotify-tools + entrypoint scripts |
 | `docker-compose.yml` | service `edge` + `certbot` (network `dormi_network`) |
 | `docker-compose.dev.yml` | override สำหรับ dev (ไม่รัน certbot, ใช้ dummy cert) |
 | `docker-entrypoint.d/10-init-dummy-cert.sh` | สร้าง cert ปลอมตอน boot แรก (nginx start ได้ก่อนมี cert จริง) |

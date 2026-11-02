@@ -1,4 +1,4 @@
-FROM nginx:1.28-alpine
+FROM nginx:1.30-alpine
 
 # openssl → dummy cert ตอน boot · inotify-tools → เฝ้าไฟล์ cert เพื่อ auto-reload
 RUN apk add --no-cache openssl inotify-tools
