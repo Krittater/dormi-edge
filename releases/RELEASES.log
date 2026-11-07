@@ -57,3 +57,4 @@ v1.0.52 | 2026-10-28 04:15:10 | be=029a54f fe=347c8a6 | migration=AddSubscriptio
 v1.0.53 | 2026-10-29 17:45:20 | be=03b7e66 fe=d3fe501 | migration=AddStaffInvitations1792800000000 | scope=all | auto
 v1.0.54 | 2026-11-02 02:23:29 | be=03b7e66 fe=d3fe501 | migration=AddStaffInvitations1792800000000 | scope=all | auto
 v1.0.55 | 2026-11-06 15:15:04 | be=a3833a9 fe=a82a9ea | migration=CreatePrivacyConsents1794500000000 | scope=all | auto
+v1.0.56 | 2026-11-07 08:09:48 | be=b2187ec fe=a82a9ea | migration=CreatePrivacyConsents1794500000000 | scope=backend | auto
