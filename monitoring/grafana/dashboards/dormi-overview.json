@@ -1,0 +1,2098 @@
+{
+  "id": null,
+  "uid": "dormi-overview",
+  "title": "Dormi ภาพรวม",
+  "description": "ภาพรวมสุขภาพระบบ Dormi สำหรับผู้บริหาร: ระบบปกติไหม · งานเบื้องหลัง · การใช้งานฟีเจอร์ · ทรัพยากร (คู่มือ: monitoring/README.md)",
+  "tags": [
+    "dormi"
+  ],
+  "timezone": "Asia/Bangkok",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [],
+  "panels": [
+    {
+      "type": "row",
+      "title": "ระบบปกติไหม",
+      "id": 1,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "เว็บ/API ปกติไหม (ตรวจจากภายนอกทุก 5 นาที)",
+      "description": "วัดจาก Grafana Synthetic Monitoring: probe ที่สิงคโปร์ยิงเข้าเว็บ 4 จุด (เว็บแอป, API, admin API, หน้า Landing) ทุก 5 นาที เหมือนลูกค้าเปิดเว็บ · ปกติเขียวทั้ง 4 ช่อง, แดง = เว็บนั้นเข้าไม่ได้จากภายนอก (alert 'เว็บ/API ล่ม') · ถ้าขึ้น 'ยังไม่มีข้อมูล' แปลว่ายังไม่ได้สร้าง check ตาม synthetic-checks.md",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "max by (instance) (max_over_time(probe_success{instance=~`https://(app\\.|dormi-api\\.|admin-api\\.)?dormi-linkandrent\\.com/.*`}[5m]))",
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "ล่ม",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "ปกติ",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "noValue": "ยังไม่มีข้อมูล"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "request ที่ error (5xx)",
+      "description": "สัดส่วน request ที่แอป API ตอบ error 5xx (ระบบพังจริง) ใน 5 นาทีล่าสุด นับจากตัวนับของแอป รวมทุกฟีเจอร์ (4xx ที่ผู้ใช้กรอกผิดไม่นับ) · ปกติ < 1% (เขียว), 1–2% ส้ม, ≥ 2% แดง = alert 'error พุ่ง' · ช่วงกลางคืนที่ request น้อยมาก error 1 ครั้งอาจเป็นหลาย % — ดูจำนวนครั้งในกราฟ request ประกอบ",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "(sum(rate(dormi_http_requests_total{status=~\"5..\"}[5m])) or vector(0)) / sum(rate(dormi_http_requests_total[5m]))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.01
+              },
+              {
+                "color": "red",
+                "value": 0.02
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "ไม่มี request",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "เวลาตอบ (p95)",
+      "description": "p95 = 95% ของ request ตอบเร็วกว่าค่านี้ (ช่วง 5 นาทีล่าสุด) วัดที่แอป API จาก histogram ของแอป ใช้แทนค่าเฉลี่ยเพราะเห็นคนที่เจอช้าได้ดีกว่า · ปกติ < 500 ms (เขียว), ≥ 500 ส้ม, ≥ 1,500 ms แดง = ช้า · ยิ่งน้อยยิ่งดี",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(dormi_http_request_duration_seconds_bucket[5m]))) * 1000",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 1500
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "ไม่มี request",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "cert (https) เหลือกี่วัน",
+      "description": "จำนวนวันที่เหลือของใบรับรอง https ตัวที่ใกล้หมดสุดใน 4 เว็บ วัดจาก Synthetic (probe_ssl_earliest_cert_expiry) · ปกติ 30–90 วัน (certbot ต่ออายุเองเมื่อเหลือ 30 วัน) · ส้ม < 30 วัน, แดง < 14 วัน = การต่ออายุมีปัญหา (alert 'cert ใกล้หมด')",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "min(((probe_ssl_earliest_cert_expiry{instance=~`https://(app\\.|dormi-api\\.|admin-api\\.)?dormi-linkandrent\\.com/.*`} > 0) - time()) / 86400)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: วัน",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 14
+              },
+              {
+                "color": "green",
+                "value": 30
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "ยังไม่มีข้อมูล",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "จำนวน request ต่อนาที",
+      "description": "ปริมาณ request ต่อนาที (เฉลี่ย 5 นาที) ของทั้งระบบ นับที่แอป API: เส้นฟ้า = ทั้งหมด (รวมระบบตรวจ/ทีมงาน/บอท), เส้นแดง = เฉพาะ 5xx · คน 1 คนใช้งานปกติ ≈ 1–5 ต่อนาที, เส้นแดงปกติเป็น 0 · ยอดพุ่งสั้นๆ ตอนกลางคืน/เช้ามืดมักเป็นบอท (ดูแผง 'ระบบตรวจ / ทีมงาน / บอท')",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum(rate(dormi_http_requests_total[5m])) * 60",
+          "instant": false,
+          "range": true,
+          "legendFormat": "ทั้งหมด"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum(rate(dormi_http_requests_total{status=~\"5..\"}[5m])) * 60",
+          "instant": false,
+          "range": true,
+          "legendFormat": "error 5xx"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "error 5xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "เวลาตอบ p95 (มิลลิวินาที)",
+      "description": "แนวโน้ม p95 ของเวลาตอบ (ms) ตามเวลา วัดที่แอป API จาก histogram ของแอป (ชุดเดียวกับช่อง 'เวลาตอบ p95') · ปกติราบต่ำกว่า 500 ms · เส้นไต่ขึ้นต่อเนื่องหลายวัน = ระบบเริ่มช้า",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(dormi_http_request_duration_seconds_bucket[5m]))) * 1000",
+          "instant": false,
+          "range": true,
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "งานเบื้องหลัง",
+      "id": 8,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "panels": []
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "งานเบื้องหลังทุกตัว",
+      "description": "ตาราง 10 งานที่ระบบทำเองโดยไม่มีใครกด: 'ทำอะไร/รันเมื่อ' มาจากแอป (dormi_job_info) ส่วนเวลาและจำนวนครั้งมาจากตัวนับของ scheduler ซึ่งเติมค่าล่าสุดจากตาราง job_runs ตอนระบบเริ่ม จึงไม่หายหลัง deploy · ปกติ: 'สำเร็จล่าสุด' อยู่ในรอบของงาน (งานทุกนาที < 0.2 ชม., งานรายวัน < 26 ชม.; งานรายสัปดาห์ และ boot.* ที่รันตอนระบบเริ่ม เก่าได้เป็นวัน) และ 'รอบล่าสุดล้มไหม' เป็น 'ปกติ' · 'ล้ม' = รอบที่รันล่าสุดใหม่กว่ารอบที่สำเร็จล่าสุด; 'ล้ม 7 วัน' นับจากตัวนับที่รีเซ็ตเมื่อ restart และไม่นับครั้งแรกที่งานเริ่มล้ม ใช้ดูประกอบเท่านั้น",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "(time() - max by (job) (dormi_job_last_success_timestamp_seconds)) / 3600",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "round(sum by (job) (increase(dormi_job_runs_total{status=\"failed\"}[7d]))) or (max by (job) (dormi_job_last_run_timestamp_seconds) * 0)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "(time() - max by (job) (dormi_job_last_run_timestamp_seconds)) / 3600",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "max by (job) (dormi_job_last_run_timestamp_seconds) > bool max by (job) (dormi_job_last_success_timestamp_seconds)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "max by (job, what, schedule) (dormi_job_info)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "ยังไม่มีข้อมูลงาน",
+          "decimals": 1,
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ล้ม 7 วัน"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "รอบล่าสุดล้มไหม"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "ปกติ",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "ล้ม",
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "สำเร็จล่าสุด (ชม.)"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "งาน"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ทำอะไร"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 400
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "รันเมื่อ"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "งาน",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value #E": true
+            },
+            "renameByName": {
+              "job": "งาน",
+              "what": "ทำอะไร",
+              "schedule": "รันเมื่อ",
+              "Value #A": "สำเร็จล่าสุด (ชม.)",
+              "Value #C": "รันล่าสุด (ชม.)",
+              "Value #D": "รอบล่าสุดล้มไหม",
+              "Value #B": "ล้ม 7 วัน"
+            },
+            "indexByName": {
+              "job": 0,
+              "what": 1,
+              "schedule": 2,
+              "Value #A": 3,
+              "Value #C": 4,
+              "Value #D": 5,
+              "Value #B": 6
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "backup ฐานข้อมูลล่าสุดเมื่อ",
+      "description": "เวลาที่ backup ฐานข้อมูลรอบล่าสุดจบสำเร็จ อ่านจากบรรทัด DONE ใน log ของ script backup (รันทุกวัน 03:30) ที่ Alloy ส่งขึ้น Loki · ปกติไม่เกิน 1 วันก่อน (alert 'backup ไม่สำเร็จ' ดังเมื่อไม่พบ DONE ใน 26 ชม.) · ถ้าไม่มีข้อมูล = ไม่พบ DONE ใน 3 วัน ถือว่าผิดปกติ",
+      "datasource": {
+        "type": "loki",
+        "uid": "grafanacloud-logs"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 27
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "grafanacloud-logs"
+          },
+          "expr": "max_over_time({job=\"db-backup\"} |= \" DONE \" | regexp ` DONE (?P<ts>[0-9]+)` | unwrap ts [3d]) * 1000",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeFromNow",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "ไม่พบ backup"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "backup ล้มใน 7 วัน (ครั้ง)",
+      "description": "จำนวนบรรทัด FAILED: ใน log backup 7 วันล่าสุด (แหล่งเดียวกับช่อง 'backup ล่าสุดเมื่อ') · ปกติเป็น 0 · 'ไม่มีข้อมูล' = ไม่พบบรรทัด FAILED: (ดี) หรือยังไม่มี log ส่งมา — ดูช่อง 'backup ล่าสุดเมื่อ' ประกอบ",
+      "datasource": {
+        "type": "loki",
+        "uid": "grafanacloud-logs"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 27
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "grafanacloud-logs"
+          },
+          "expr": "sum(count_over_time({job=\"db-backup\"} |= \"FAILED:\" [7d]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "ไม่มีข้อมูล",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "รอบล่าสุดของงานล้มไหม (1 = ล้ม)",
+      "description": "1 เส้นต่องาน: ขึ้นเป็น 1 = รอบที่รันล่าสุดใหม่กว่ารอบที่สำเร็จล่าสุด (ล้ม) แล้วกลับเป็น 0 เมื่องานสำเร็จอีกครั้ง · คำนวณจากเวลารัน/เวลาสำเร็จที่ scheduler บันทึกไว้ (ชุดเดียวกับตารางด้านบน) · ปกติเป็น 0 ตลอด",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "max by (job) (dormi_job_last_run_timestamp_seconds) > bool max by (job) (dormi_job_last_success_timestamp_seconds)",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{job}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": true,
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "การใช้งานฟีเจอร์",
+      "id": 13,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "panels": []
+    },
+    {
+      "id": 14,
+      "type": "bargauge",
+      "title": "request ต่อฟีเจอร์ (ในช่วงเวลาที่เลือก)",
+      "description": "จำนวน request รวมของแต่ละฟีเจอร์ในช่วงเวลาที่เลือกมุมขวาบน นับที่แอป API (1 การเปิดหน้าอาจเกิด 3–10 request) · ไม่นับ version (ระบบตรวจ), admin (ทีม Dormi), unmatched (บอท) — ดูสามตัวนี้ที่แผง 'ระบบตรวจ / ทีมงาน / บอท' · ใช้ดูว่าฟีเจอร์ไหนถูกเรียกบ่อยที่สุด",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 34
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sort_desc(sum by (feature) (increase(dormi_http_requests_total{feature!~\"version|admin|unmatched\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{feature}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 15,
+      "type": "bargauge",
+      "title": "จำนวนหอที่ใช้แต่ละฟีเจอร์ (7 วัน)",
+      "description": "จำนวนหอ (ไม่ซ้ำ) ที่มี request สำเร็จ (2xx/3xx) ของฟีเจอร์นั้นอย่างน้อย 1 ครั้งใน 7 วัน อ่านจาก log ของแอปใน Loki (ไม่ขึ้นกับช่วงเวลาที่เลือก) · ฟีเจอร์ที่ไม่มีหอใช้เลยหลายสัปดาห์ = อาจไม่คุ้มพัฒนาต่อ · ไม่นับ version/admin/unmatched และฟีเจอร์ที่ไม่ผูกกับหอ เช่น auth จะไม่ขึ้น",
+      "datasource": {
+        "type": "loki",
+        "uid": "grafanacloud-logs"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 34
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "grafanacloud-logs"
+          },
+          "expr": "sort_desc(count by (feature) (sum by (feature, apt) (count_over_time({feature=~\".+\", feature!~\"version|admin|unmatched\", status=~\"2..|3..\"} |= `\"apartmentId\":\"` | regexp `\"apartmentId\":\"(?P<apt>[0-9a-f-]{36})\"` [7d]))))",
+          "queryType": "instant",
+          "legendFormat": "{{feature}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "ไม่มีข้อมูล",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "bargauge",
+      "title": "ฟีเจอร์ที่ช้าสุด (p95)",
+      "description": "ฟีเจอร์ที่ตอบช้าสุด 8 อันดับ (p95 = 95% ของ request เร็วกว่าค่านี้) ในช่วงเวลามุมขวาบน วัดที่แอป API · ใช้เลือกว่าจะปรับความเร็วตรงไหนก่อน · ฟีเจอร์ที่มีคนใช้น้อยมากค่าจะแกว่งเพราะตัวอย่างน้อย; ไม่นับ version/admin/unmatched",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 34
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sort_desc(topk(8, histogram_quantile(0.95, sum by (le, feature) (rate(dormi_http_request_duration_seconds_bucket{feature!~\"version|admin|unmatched\"}[$__range]))) * 1000))",
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{feature}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 1500
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "request ต่อนาที แยกตามฟีเจอร์",
+      "description": "request ต่อนาที (เฉลี่ย 5 นาที) ของแต่ละฟีเจอร์ ซ้อนกัน = ปริมาณรวมของลูกค้า นับที่แอป API · เอาเมาส์วางบนกราฟเพื่อดูค่าของทุกฟีเจอร์ ณ เวลานั้น · ไม่นับ version/admin/unmatched (ดูแผงทางขวา); public = คนเปิดหน้า Landing ซึ่งไม่ต้อง login",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 16,
+        "x": 0,
+        "y": 42
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum by (feature) (rate(dormi_http_requests_total{feature!~\"version|admin|unmatched\"}[5m])) * 60",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{feature}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 35,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "ระบบตรวจ / ทีมงาน / บอท (request ต่อนาที)",
+      "description": "แยกทราฟฟิกที่ไม่ใช่ลูกค้าออกจากกราฟฟีเจอร์ นับที่แอป API เหมือนกัน: version = ระบบตรวจ Synthetic ยิงเช็ก /version ทุก 5 นาที, admin = ทีม Dormi ใช้หลังบ้าน, unmatched = URL ที่ไม่มีในระบบ ส่วนใหญ่เป็นบอทสแกนหาไฟล์ลับ (ได้ 404 ทุกครั้ง) · ปกติ version ราบสม่ำเสมอ, unmatched พุ่งเป็นช่วงสั้นๆ ได้ ไม่มีข้อมูลหลุด · ถ้า unmatched สูงต่อเนื่องนานหลายชั่วโมงให้ดู log",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 42
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum(rate(dormi_http_requests_total{feature=\"version\"}[5m])) * 60",
+          "instant": false,
+          "range": true,
+          "legendFormat": "ระบบตรวจ Synthetic (version)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum(rate(dormi_http_requests_total{feature=\"admin\"}[5m])) * 60",
+          "instant": false,
+          "range": true,
+          "legendFormat": "ทีม Dormi (admin)"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum(rate(dormi_http_requests_total{feature=\"unmatched\"}[5m])) * 60",
+          "instant": false,
+          "range": true,
+          "legendFormat": "URL ที่ไม่มี / บอท (unmatched)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ระบบตรวจ Synthetic (version)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ทีม Dormi (admin)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "URL ที่ไม่มี / บอท (unmatched)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "ทรัพยากร",
+      "id": 18,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "panels": []
+    },
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "CPU ที่ใช้ (%)",
+      "description": "CPU ของเครื่อง server ทั้งเครื่อง (2 vCPU) เฉลี่ย 5 นาที จาก node exporter ของ Alloy · ปกติส่วนใหญ่ < 30% (ส้ม ≥ 70%, แดง ≥ 90%) · ต่อเนื่องเกิน 90% = เครื่องเล็กไป (DigitalOcean จะเตือนอีเมลด้วย)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 50
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "RAM ที่ใช้ (%)",
+      "description": "หน่วยความจำของเครื่อง (RAM 4 GB) ที่ใช้จริง ไม่นับ cache ที่คืนได้ จาก node exporter ของ Alloy · ปกติ < 75% (ส้ม ≥ 75%, แดง ≥ 90%) · alert 'RAM ตึง' ดังเมื่อเหลือว่างน้อยกว่า 10%",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 50
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "ดิสก์ที่ใช้ (%)",
+      "description": "พื้นที่ดิสก์หลักของเครื่อง (48 GB) ที่ใช้ไป จาก node exporter ของ Alloy · ปกติ < 70% (ส้ม ≥ 70%, แดง ≥ 80%) · alert 'ดิสก์จะเต็ม' ดังเมื่อเกิน 80%",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 50
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "100 * (1 - node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"})",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "ดิสก์จะเหลือว่างอีก 7 วัน (คาดการณ์)",
+      "description": "คาดการณ์จากแนวโน้ม 24 ชั่วโมงล่าสุดว่าอีก 7 วันดิสก์ (48 GB) จะเหลือว่างเท่าไร · ติดลบ = คาดว่าจะเต็มก่อนถึง 7 วัน (alert 'ดิสก์จะเต็ม') · หลัง deploy (build image) หรือช่วง backup ค่าจะลดชั่วคราวแล้วกลับมา",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 50
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "predict_linear(node_filesystem_avail_bytes{mountpoint=\"/\"}[24h], 7 * 24 * 3600)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "ไม่มีข้อมูล",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "CPU / RAM / ดิสก์ (%)",
+      "description": "แนวโน้ม CPU / RAM / ดิสก์ของเครื่องทั้งเครื่อง (2 vCPU, RAM 4 GB, ดิสก์ 48 GB) จาก node exporter ของ Alloy ชุดเดียวกับ 3 ช่องด้านบน · ปกติ CPU ส่วนใหญ่ < 30%, RAM < 75%, ดิสก์ < 70% · ยอด CPU/RAM พุ่งตอน deploy แล้วลงเองเป็นปกติ; ดิสก์ควรขึ้นช้าๆ",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))",
+          "instant": false,
+          "range": true,
+          "legendFormat": "CPU"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
+          "instant": false,
+          "range": true,
+          "legendFormat": "RAM"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "100 * (1 - node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"})",
+          "instant": false,
+          "range": true,
+          "legendFormat": "ดิสก์"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "RAM ต่อ container",
+      "description": "RAM ที่แต่ละ container ใช้ (จาก cAdvisor ของ Alloy) ซ้อนกัน = รวมทั้งหมด เครื่องมี RAM 4 GB · ปกติ dormi_postgres ใช้มากสุด (เป็น cache), API/scheduler ราว 200–300 MB ต่อตัว · ชื่อสุ่มอย่าง epic_turing ที่เคยขึ้น = container ชั่วคราวตอน deploy (ตรวจ lockfile/migration) ขึ้นแล้วหายใน 1–3 นาที ตั้งแต่ deploy รอบถัดไปจะชื่อ dormi-deploy-* (และ dormi-backup-tar-* ตอน backup 03:30)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 54
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum by (name) (container_memory_working_set_bytes{name!=\"\"})",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 35,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "การเชื่อมต่อฐานข้อมูล",
+      "description": "จำนวน connection ที่แอปเปิดคุยกับ Postgres (เส้นกำลังใช้) เทียบเพดาน max_connections (เส้นเพดาน = 100) จาก postgres exporter ของ Alloy · ปกติ 2–10 สาย · alert 'DB connection ใกล้เต็ม' ที่ 80% ของเพดาน",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 10,
+        "x": 0,
+        "y": 61
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum(pg_stat_database_numbackends)",
+          "instant": false,
+          "range": true,
+          "legendFormat": "กำลังใช้"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "max(pg_settings_max_connections)",
+          "instant": false,
+          "range": true,
+          "legendFormat": "เพดาน"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "เพดาน"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 26,
+      "type": "stat",
+      "title": "ขนาดฐานข้อมูล",
+      "description": "ขนาดฐานข้อมูลของ Dormi (ไม่นับ template/postgres) จาก postgres exporter ของ Alloy · ปกติค่อยๆ โตตามข้อมูลลูกค้า · ถ้าโตเร็วผิดปกติให้ดูดิสก์ควบคู่",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 10,
+        "y": 61
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum(pg_database_size_bytes{datname!~\"template.*|postgres\"})",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "ไม่มีข้อมูล",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 27,
+      "type": "stat",
+      "title": "cache hit ของฐานข้อมูล",
+      "description": "สัดส่วนข้อมูลที่ฐานข้อมูลอ่านจาก RAM แทนดิสก์ (เฉลี่ย 1 ชม.) จาก postgres exporter ของ Alloy · ปกติ > 95% (ส้ม < 95%, แดง < 90%) · ต่ำต่อเนื่อง = RAM ไม่พอหรือคิวรีหนัก",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 14,
+        "y": 61
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "sum(rate(pg_stat_database_blks_hit[1h])) / (sum(rate(pg_stat_database_blks_hit[1h])) + sum(rate(pg_stat_database_blks_read[1h])))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "ไม่มีข้อมูล",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 28,
+      "type": "stat",
+      "title": "Postgres ทำงานอยู่ไหม",
+      "description": "เขียว = Postgres ตอบ exporter ได้ปกติ (pg_up = 1), แดง = ฐานข้อมูลไม่ตอบ · วัดจาก postgres exporter ของ Alloy ทุก 1 นาที · ถ้าแดงเว็บจะใช้งานไม่ได้ ตรวจ container dormi_postgres ทันที",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 61
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "min(pg_up)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "ล่ม",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "ปกติ",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "noValue": "ไม่มีข้อมูล"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 29,
+      "type": "table",
+      "title": "query ช้า 10 อันดับแรก (เวลาเฉลี่ยต่อครั้ง)",
+      "description": "คิวรีที่ใช้เวลาเฉลี่ยมากสุด 10 อันดับในช่วงเวลาที่เลือก จาก pg_stat_statements แสดงเฉพาะรหัสคิวรี (queryid) ไม่แสดงข้อความ SQL เพื่อไม่ให้ข้อมูลลูกค้าหลุดออกนอกเครื่อง · ว่างเป็นปกติตอนนี้ เพราะยังไม่ได้เปิดการเก็บสถิติ query ใน Postgres",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 68
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "topk(10, 1000 * sum by (queryid) (increase(pg_stat_statements_seconds_total[$__range])) / (sum by (queryid) (increase(pg_stat_statements_calls_total[$__range])) > 0))",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "ไม่มีข้อมูล (ยังไม่เปิด pg_stat_statements)",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "เวลาเฉลี่ย (ms)",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "queryid": "รหัสคิวรี",
+              "Value": "เวลาเฉลี่ย (ms)"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

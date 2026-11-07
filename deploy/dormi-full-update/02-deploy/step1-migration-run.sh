@@ -110,7 +110,9 @@ fi
 # ========= 5. run migration =========
 # NOTE: step นี้ "ไม่ revert เอง" — พังแล้ว exit 1 → job 'revert-db' ใน workflow จัดการ restore
 echo "🚀 migration:run..."
+# --name: ชื่ออ่านออกใน Grafana (RAM ต่อ container) แทนชื่อสุ่มของ Docker · ซ้ำกันไม่ได้ (pid + เวลา)
 if docker run --rm \
+     --name "dormi-deploy-migrate-$$-$(date +%s)" \
      --network dormi_network \
      --env-file "$BE_DIR/$COMPOSE_DIR/$ENV_FILE" \
      -e NODE_ENV=production -e DATABASE_HOST=postgres -e DATABASE_PORT=5432 \

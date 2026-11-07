@@ -23,6 +23,12 @@ services:
       # cert (แชร์กับ certbot) — ต้อง rw เพื่อให้ 10-init-dummy-cert.sh เขียน dummy ได้ตอน boot แรก
       - ./data/certbot/conf:/etc/letsencrypt
       - ./data/certbot/www:/var/www/certbot
+    # log rotation (10MB x 3) — nginx access log ออก stdout ทุก request ไม่หมุน = ดิสก์เต็ม
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - dormi_network
 
@@ -39,6 +45,12 @@ services:
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done'"
     depends_on:
       - edge
+    # log rotation (10MB x 3)
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - dormi_network
     restart: always

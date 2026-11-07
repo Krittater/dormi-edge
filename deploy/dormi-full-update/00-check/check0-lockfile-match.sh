@@ -56,7 +56,8 @@ check_lock() {   # $1=dir  $2=branch  $3=label
   fi
 
   # npm ci --dry-run: sync check จะ error ทันทีถ้า lock ไม่ตรง (ก่อนติดตั้งจริง)
-  docker run --rm -v "$tmp:/app" -w /app "$IMAGE" \
+  # --name: ให้ Grafana (RAM ต่อ container) เห็นชื่ออ่านออก แทนชื่อสุ่มของ Docker เช่น epic_turing · ซ้ำกันไม่ได้ (label + pid + เวลา)
+  docker run --rm --name "dormi-deploy-lockcheck-${label}-$$-$(date +%s)" -v "$tmp:/app" -w /app "$IMAGE" \
     npm ci --dry-run --ignore-scripts --no-audit --no-fund >/dev/null 2>&1
   rc=$?
 

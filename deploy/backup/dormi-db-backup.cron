@@ -1,0 +1,3 @@
+# dump ฐานข้อมูล Dormi วันละครั้ง — ติดตั้งเป็น /etc/cron.d/dormi-db-backup (chmod 644)
+# 20:30 UTC = 03:30 เวลาไทย (ห่างจาก scheduler ออกบิลตอนตี 1)
+30 20 * * * root /usr/local/bin/dormi-db-dump >> /var/log/dormi-db-backup.log 2>&1

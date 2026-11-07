@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Inspect server or deploy reviewed backend and Admin APIs
+        description: Inspect server or deploy the reviewed Admin API
         type: choice
         options: [inspect, deploy]
         default: inspect
@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      - uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         env:
           RELEASE_MODE: ${{ inputs.mode }}
           EDGE_SHA: ${{ github.sha }}

@@ -1,0 +1,13 @@
+# ── ห้าม commit ──
+# state = สิ่งที่ Terraform จำว่าสร้าง/ผูกอะไรไว้ มี IP และข้อมูลเครื่องอยู่ข้างใน
+*.tfstate
+*.tfstate.*
+# ตัว provider ที่ init ดาวน์โหลดมา (ใหญ่ และโหลดใหม่ได้เสมอ)
+.terraform/
+# ไฟล์ตัวแปร — มักมีความลับ
+*.tfvars
+# ผล plan ที่บันทึกไว้ และ log ตอน Terraform พัง
+*.tfplan
+crash.log
+
+# ★ .terraform.lock.hcl ต้อง commit — ล็อกรุ่น provider ให้ทุกเครื่องใช้รุ่นเดียวกัน
