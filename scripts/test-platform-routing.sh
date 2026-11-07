@@ -89,4 +89,27 @@ expect "200 api GET /apartments" "$API" GET /apartments
 expect "200 admin GET /api/admin/users" "$ADMIN" GET /api/admin/users
 for h in "$API" "$ADMIN" "$WEB"; do expect "404" "$h" GET /internal/platform/v1/operations/x; done
 
+echo "── ตัวพิมพ์ใหญ่ (Express จับ route ไม่สนตัวพิมพ์) ──"
+expect "200 admin GET /Admin/plans" "$API" GET /Admin/plans
+expect "200 admin POST /ADMIN/customers" "$API" POST /ADMIN/customers
+expect "200 admin GET /Public/Chat-Links/abc12345/visit" "$API" GET /Public/Chat-Links/abc12345/visit
+for h in "$API" "$ADMIN" "$WEB"; do expect "404" "$h" GET /Internal/platform/v1/operations/x; done
+
+echo "── maintenance: ปิด writes ──"
+expect "200 api POST /auth/register" "$API" POST /auth/register
+sed -i 's/^set \$maintenance 0;/set $maintenance 1;/' "$WORK/snippets/maintenance.conf"
+grep -q '^set \$maintenance 1;' "$WORK/snippets/maintenance.conf"
+docker exec "$RUN-edge" nginx -t || { dump; exit 1; }
+docker exec "$RUN-edge" nginx -s reload
+sleep 1
+expect "503" "$API" POST /auth/register
+expect "503" "$API" POST /admin/customers
+expect "503" "$API" POST /admin/auth/login
+expect "503" "$ADMIN" POST /api/admin/users
+expect "200 api POST /auth/login" "$API" POST /auth/login
+expect "200 api POST /auth/logout" "$API" POST /auth/logout
+expect "200 admin GET /admin/customers" "$API" GET /admin/customers
+expect "200 api GET /apartments" "$API" GET /apartments
+expect "200 web GET /" "$WEB" GET /
+
 exit $fail
