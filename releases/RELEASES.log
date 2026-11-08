@@ -62,3 +62,4 @@ v1.0.57 | 2026-11-07 15:21:24 | be=d654c7c fe=c07ad9d | migration=Amenities17953
 v1.0.58 | 2026-11-07 15:30:51 | be=d654c7c fe=c07ad9d | migration=Amenities1795300000000 | scope=all | auto
 v1.0.59 | 2026-11-07 15:47:43 | be=199c65b fe=7560abd | migration=TenantPhoneOptional1795400000000 | scope=all | auto
 v1.0.60 | 2026-11-08 11:20:26 | be=318e086 fe=c07c1af | migration=DailyRentalPerRoom1795600000000 | scope=all | auto
+v1.0.61 | 2026-11-08 11:56:10 | be=931af0d fe=c07c1af | migration=DailyRentalPerRoom1795600000000 | scope=backend | auto
