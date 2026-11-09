@@ -100,6 +100,11 @@ upload_expect 200 "$API" /APARTMENTS/a1/payment-accounts/qr-scan/
 upload_expect 200 "$API" /apartments/a1/utility-meter-groups/g1/cycles/c1/document
 upload_expect 413 "$API" /apartments/a1/rooms
 upload_expect 413 "$ADMIN" /api/admin/users
+upload_expect 200 "$API" /apartments/a1/files
+upload_expect 200 "$API" /apartments/a1/files/
+upload_expect 200 "$API" /admin/platform-invoices/i1/payments
+upload_expect 413 "$API" /apartments/a1/files/extra
+upload_expect 413 "$API" /admin/platform-invoices/i1
 # rate limit ยังถูกใช้ครบทุกโซน (ไม่ใช่แค่ประกาศ)
 for zone in api_auth_login api_auth_other web_auth_pages landing_per_ip; do
   if docker exec "$RUN-edge" nginx -T 2>/dev/null | grep -Eq "^[[:space:]]*limit_req zone=$zone "; then
