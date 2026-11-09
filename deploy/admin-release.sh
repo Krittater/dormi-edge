@@ -8,7 +8,7 @@ umask 077
 MODE=${1:-inspect}
 [[ "$MODE" == inspect || "$MODE" == deploy ]] || exit 2
 AD=/root/dormi-admin
-AD_SHA=ff5ab9014808459549ce0e1dd511ccd794c29acb
+AD_SHA=420a2cb5bee69ce9e213c56066a6f787d809514d
 HOST=admin-api.dormi-linkandrent.com
 . /root/dormi-edge/deploy/lib/deploy-lock.sh
 deploy_lock "admin release $MODE"
