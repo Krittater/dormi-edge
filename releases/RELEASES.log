@@ -68,3 +68,4 @@ v1.0.63 | 2026-11-09 05:11:53 | be=54b070b fe=5081cd0 | migration=MultipleTrialP
 v1.0.64 | 2026-11-09 12:03:52 | be=83d344e fe=f3525a0 | migration=InvoiceDisplayBillNo1796000000000 | scope=all | auto
 v1.0.65 | 2026-11-09 13:57:54 | be=a0be1bf fe=f3525a0 | migration=InvoiceDisplayBillNo1796000000000 | scope=backend | auto
 v1.0.66 | 2026-11-11 04:10:05 | be=a0be1bf fe=6275d50 | migration=InvoiceDisplayBillNo1796000000000 | scope=all | auto
+v1.0.67 | 2026-11-13 07:20:50 | be=a0be1bf fe=6275d50 | migration=InvoiceDisplayBillNo1796000000000 | scope=all | auto
