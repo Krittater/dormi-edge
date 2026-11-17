@@ -106,7 +106,7 @@ upload_expect 200 "$API" /admin/platform-invoices/i1/payments
 upload_expect 413 "$API" /apartments/a1/files/extra
 upload_expect 413 "$API" /admin/platform-invoices/i1
 # rate limit ยังถูกใช้ครบทุกโซน (ไม่ใช่แค่ประกาศ)
-for zone in api_auth_login api_auth_other web_auth_pages landing_per_ip; do
+for zone in api_auth_login api_auth_other api_auth_line web_auth_pages landing_per_ip; do
   if docker exec "$RUN-edge" nginx -T 2>/dev/null | grep -Eq "^[[:space:]]*limit_req zone=$zone "; then
     echo "ok   limit_req zone=$zone ถูกใช้"
   else
@@ -116,6 +116,19 @@ done
 # login ถูก limit จริง: burst 30 → ยิง 40 ครั้งติดต้องเจอ 429 (รูปแบบ JSON ของ edge)
 hits=$(docker exec "$RUN-edge" sh -c 'for i in $(seq 1 40); do curl -sk -o /dev/null -w "%{http_code}\n" -X POST --resolve dormi-api.dormi-linkandrent.com:443:127.0.0.1 https://dormi-api.dormi-linkandrent.com/Auth/Login/; done' | grep -c '^429$' || true)
 if [[ "$hits" -gt 0 ]]; then echo "ok   /Auth/Login/ ถูก rate limit ($hits/40 ได้ 429)"; else echo "FAIL /Auth/Login/ ไม่ถูก rate limit"; fail=1; fi
+# LINE Login: start/callback ไป dormi-api (ไม่สนตัวพิมพ์/slash ท้าย) · /auth/line/config ไปตามปกติ
+expect "200 api GET /auth/line/start" "$API" GET /auth/line/start
+expect "200 api GET /Auth/Line/Callback/" "$API" GET /Auth/Line/Callback/
+expect "200 api GET /auth/line/config" "$API" GET /auth/line/config
+# หลวมกว่า backend (30/นาที/IP): ผู้เช่าหลายคนบน Wi-Fi เดียวยิง 40 ครั้งติด ต้องไม่โดน 429 ดิบจาก edge
+# (backend ตอบ 302 พร้อมข้อความเองเมื่อเกิน) · flood 200 ครั้งต้องเจอ 429
+line_hits() {
+  docker exec "$RUN-edge" sh -c "for i in \$(seq 1 $1); do curl -sk -o /dev/null -w '%{http_code}\n' --resolve $API:443:127.0.0.1 https://$API/auth/line/start; done" | grep -c '^429$' || true
+}
+hits=$(line_hits 40)
+if [[ "$hits" -eq 0 ]]; then echo "ok   /auth/line/start 40 ครั้งติดไม่โดน 429"; else echo "FAIL /auth/line/start 40 ครั้งโดน 429 $hits ครั้ง (ต้องหลวมกว่า backend)"; fail=1; fi
+hits=$(line_hits 200)
+if [[ "$hits" -gt 0 ]]; then echo "ok   /auth/line/start ถูก rate limit เมื่อ flood ($hits/200)"; else echo "FAIL /auth/line/start ไม่ถูก rate limit"; fail=1; fi
 
 echo "── หลังสลับ authority ──"
 sed -i 's/^set \$platform_pool dormi_api_pool;/set $platform_pool dormi_admin_pool;/' "$WORK/snippets/platform-authority.conf"
