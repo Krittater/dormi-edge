@@ -71,3 +71,5 @@ v1.0.66 | 2026-11-11 04:10:05 | be=a0be1bf fe=6275d50 | migration=InvoiceDisplay
 v1.0.67 | 2026-11-13 07:20:50 | be=a0be1bf fe=6275d50 | migration=InvoiceDisplayBillNo1796000000000 | scope=all | auto
 v1.0.68 | 2026-11-16 07:36:58 | be=b7f6528 fe=b9b03c5 | migration=CreateTicketSystemTables1796400000000 | scope=all | auto
 v1.0.69 | 2026-11-16 17:25:57 | be=923be10 fe=b9b03c5 | migration=CreateTicketSystemTables1796400000000 | scope=all | auto
+v1.0.69-edge-nginx-1.30.7 | 2026-11-19 01:41:40 | edge=545db29 nginx=1.30.7 | zero-downtime swap via parallel container | manual
+v1.0.70 | 2026-11-19 06:21:36 | be=201f198 fe=8247671 | migration=CreateTicketSystemTables1796400000000 | scope=all | auto
