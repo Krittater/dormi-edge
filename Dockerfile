@@ -1,4 +1,6 @@
-FROM nginx:1.30-alpine
+# ปักเลขรุ่น nginx (ไม่ใช้ 1.30-alpine ลอย) — เครื่องที่มี image เก่าใน cache จะ build ได้ 1.30.x เดิมถ้าไม่ใส่ --pull
+# 1.30.7 = แพตช์ความปลอดภัย 18 พ.ย. 2026 (CVE-2026-118899 TLS1.3, CVE-2026-123007 HTTP/2 ฯลฯ) · อัปรุ่นถัดไป: แก้บรรทัดนี้
+FROM nginx:1.30.7-alpine
 
 # openssl → dummy cert ตอน boot · inotify-tools → เฝ้าไฟล์ cert เพื่อ auto-reload
 RUN apk add --no-cache openssl inotify-tools
